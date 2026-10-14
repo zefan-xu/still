@@ -18,6 +18,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -243,7 +245,10 @@ public final class Thumbnails {
   private void prune() {
     File[] files = directory.listFiles();
     if (files == null) return;
-    Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+    // Other threads touch these files while sorting, so the comparator reads a fixed snapshot.
+    Map<File, Long> modified = new HashMap<>();
+    for (File file : files) modified.put(file, file.lastModified());
+    Arrays.sort(files, (a, b) -> Long.compare(modified.get(b), modified.get(a)));
     long total = 0;
     for (File file : files) {
       total += file.length();
