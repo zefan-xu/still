@@ -120,22 +120,23 @@ public final class FunctionalUiTest {
             ActivityScenario.launch(SettingsActivity.class)) {
       onView(withText("Downloads/" + f.folder)).perform(scrollTo(), click());
       onView(isAssignableFrom(EditText.class)).perform(replaceText("../outside"));
-      onView(withText("Save")).perform(click());
+      // Short screens with a tall keyboard put Save below the sheet's fold, as a user would scroll.
+      onView(withText("Save")).perform(scrollTo(), click());
       assertEquals(f.folder, DownloadStore.folder(f.app));
       onView(withText("Use 1–60 letters, numbers, spaces, _ or -")).check(matches(isDisplayed()));
       onView(isAssignableFrom(EditText.class)).perform(replaceText(f.folder + "_Edited"));
-      onView(withText("Save")).perform(click());
+      onView(withText("Save")).perform(scrollTo(), click());
       assertEquals(f.folder + "_Edited", DownloadStore.folder(f.app));
       onView(withText("X metadata service")).perform(scrollTo(), click());
       onView(isAssignableFrom(EditText.class))
           .perform(replaceText("https://user:secret@example.com"));
-      onView(withText("Save")).perform(click());
+      onView(withText("Save")).perform(scrollTo(), click());
       assertFalse(f.prefs.contains("api"));
       onView(withText("Enter an HTTPS endpoint without credentials or query parameters"))
           .check(matches(isDisplayed()));
       onView(isAssignableFrom(EditText.class))
           .perform(replaceText("https://example.com/public-api"));
-      onView(withText("Save")).perform(click());
+      onView(withText("Save")).perform(scrollTo(), click());
       screen.recreate();
       assertEquals("https://example.com/public-api", f.prefs.getString("api", ""));
       onView(withText("example.com")).perform(scrollTo()).check(matches(isDisplayed()));

@@ -65,6 +65,8 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
+          # Cold boots on hosted runners sometimes exceed the 600-second default.
+          emulator-boot-timeout: 900
           script: python3 scripts/test.py device
       - uses: actions/upload-artifact@v4
         if: always()
@@ -100,6 +102,8 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
+          # Cold boots on hosted runners sometimes exceed the 600-second default.
+          emulator-boot-timeout: 900
           script: python3 scripts/test.py live --quality both
       - uses: actions/upload-artifact@v4
         if: always()
