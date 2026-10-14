@@ -12,6 +12,7 @@
         android:usesCleartextTraffic="false" android:supportsRtl="true" android:extractNativeLibs="true">
         <activity android:name=".PlayerActivity" android:exported="false" android:theme="@style/Still.Viewer" />
         <activity android:name=".SettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".OnboardingActivity" android:exported="false" />
         <service android:name=".gif.GifService" android:exported="false" android:foregroundServiceType="dataSync|mediaProcessing" />
         <service android:name=".CookieDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <receiver android:name=".DownloadReceiver" android:exported="true">
