@@ -120,9 +120,7 @@ public final class PublicLinkParser {
             + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
       }
     }
-    throw new IOException(
-        "Use an HTTPS public post link from X, TikTok, Instagram, Facebook, Pinterest, Threads, or"
-            + " Bluesky.");
+    throw new IOException("Use an HTTPS public post link from " + Platforms.names("or") + ".");
   }
 
   /** pinterest.&lt;domain&gt; with www., m. or a regional label such as in. or uk. */
