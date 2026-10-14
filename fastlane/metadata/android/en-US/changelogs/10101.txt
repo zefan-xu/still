@@ -1,0 +1,3 @@
+- First-launch tutorial: share from any app, or paste a link
+- Delete saved files from MediaStore and offer record-only removal in viewer
+- Updated dependencies

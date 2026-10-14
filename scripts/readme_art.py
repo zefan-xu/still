@@ -2,7 +2,8 @@
 """Draws the README hero, download button and screenshot showcase in the app's palette and type.
 
 Text becomes SVG paths from the app's own Source Serif 4 files, since GitHub images cannot load
-fonts. The showcase is composited from `scripts/test.py screenshots` output.
+fonts. The showcase is composited from `scripts/test.py screenshots` output, and the same light
+screens become the unframed F-Droid and IzzyOnDroid screenshots.
 
     python3 -m pip install pillow fonttools uharfbuzz
     python3 scripts/test.py screenshots --serial emulator-5554
@@ -24,6 +25,7 @@ FONTS = ROOT / "app" / "src" / "main" / "assets" / "fonts"
 DISPLAY = FONTS / "SourceSerif4Display-Regular.ttf"
 SEMIBOLD = FONTS / "SourceSerif4-Semibold.ttf"
 TRAY = ROOT / "tools" / "figures" / "out"
+STORE = ROOT / "fastlane" / "metadata" / "android" / "en-US" / "images" / "phoneScreenshots"
 
 # Theme.java
 PALETTE = {
@@ -199,7 +201,12 @@ def main():
         (OUT / f"platforms-{theme}.svg").write_text(platforms(theme, semibold))
         (OUT / f"download-{theme}.svg").write_text(button(theme, semibold))
         showcase(theme, args.screenshots).save(OUT / f"screens-{theme}.png", optimize=True)
-    print(f"Wrote {OUT.relative_to(ROOT)}")
+    # Store clients show screenshots at about 350 px wide, so half size keeps downloads small.
+    STORE.mkdir(parents=True, exist_ok=True)
+    for i, (name, _, _) in enumerate(SHOWCASE, 1):
+        screen = Image.open(args.screenshots / f"{name}-light.png")
+        screen.resize((screen.width // 2, screen.height // 2), Image.LANCZOS).save(STORE / f"{i}.png", optimize=True)
+    print(f"Wrote {OUT.relative_to(ROOT)} and {STORE.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

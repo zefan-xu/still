@@ -1,0 +1,28 @@
+Still is a small app for keeping the photos, videos and GIFs from public posts. Share a link to it from any app, choose what to keep, and carry on. The files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or sign-in, and it never asks for an account.
+
+How it works:
+
+1. Share a post to Still, or paste a link on the home screen. A sheet opens with a preview of every photo, video and GIF in the post.
+2. Everything is selected; tap a preview to leave it out, or pick a quality per item. Tap Save and go back to what you were doing. Downloads continue in the background.
+3. Home is your library, grouped by day, with search. Tap to view full screen; long-press to share, make a GIF, open the original post, remove it from the library or delete the file.
+
+Where it works:
+
+- X: videos, GIFs and photos
+- Instagram: photos, carousels and videos
+- TikTok: videos and photo slideshows
+- Facebook: videos and reels
+- Pinterest: videos and image pins
+- Threads: photos, carousels and videos
+- Bluesky: videos and photos
+- YouTube: videos and Shorts, up to 4K
+
+Only public posts work. Private, login-only and deleted posts, live streams and Facebook photos are not supported. On Android 10 or later, Still downloads YouTube's separate video and audio and combines them on your phone without re-encoding. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered.
+
+Files go to Downloads/Still, or to another folder inside Downloads. Settings cover default quality, saving automatically on share, Wi-Fi-only downloads, one to four downloads at a time, and light, dark or system appearance.
+
+Privacy:
+
+Still reads posts the way a logged-out browser would, directly from your phone. There is no Still server. For X, only the post ID goes to the open-source FxTwitter API, and you can point Settings at your own instance. Other platforms are contacted directly. The bundled yt-dlp extractor runs on the phone and updates only when you ask, from yt-dlp's official GitHub release. Still reads the clipboard only when you tap Paste.
+
+Still is free software under the GPL-3.0-or-later. It is not affiliated with any of the platforms it works with.
