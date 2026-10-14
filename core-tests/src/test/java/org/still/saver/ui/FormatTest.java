@@ -44,11 +44,13 @@ public final class FormatTest {
   }
 
   @Test
-  public void unknownKindsAreCapitalizedAndEmptyKindsAreMedia() {
-    assertEquals("Media", Format.kind(""));
-    assertEquals("Audio", Format.kind("audio"));
-    assertEquals("GIF", Format.kind("ANIMATED_GIF"));
-    assertEquals("Photo", Format.kind("Image"));
+  public void extractorKindNamesAreNormalizedAndUnknownKindsPassThrough() {
+    assertEquals("", Format.kind(""));
+    assertEquals("audio", Format.kind("audio"));
+    assertEquals("gif", Format.kind("ANIMATED_GIF"));
+    assertEquals("photo", Format.kind("Image"));
+    assertEquals("Audio", Format.capitalized("audio"));
+    assertEquals("", Format.capitalized(""));
   }
 
   @Test
@@ -57,10 +59,8 @@ public final class FormatTest {
     assertEquals("720p", Format.resolution(720, 1280, true));
     assertEquals("4096 × 2304", Format.resolution(4096, 2304, false));
     assertEquals("", Format.resolution(0, 720, true));
-    assertEquals("Video", Format.kind("video"));
-    assertEquals("GIF", Format.kind("gif"));
-    assertEquals("Photo", Format.kind("photo"));
-    assertEquals("1 item", Format.count(1, "item"));
-    assertEquals("3 items", Format.count(3, "item"));
+    assertEquals("video", Format.kind("Video"));
+    assertEquals("gif", Format.kind("gif"));
+    assertEquals("photo", Format.kind("PHOTO"));
   }
 }

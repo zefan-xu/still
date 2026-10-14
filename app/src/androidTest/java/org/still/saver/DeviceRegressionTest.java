@@ -306,7 +306,7 @@ public final class DeviceRegressionTest {
             assertSame(post, current.session().post());
             assertEquals(SaveSession.Phase.READY, current.session().phase());
             assertEquals(smaller.url, current.session().chosen(0).url);
-            label.set(ResultsSheet.saveLabel(current.session()));
+            label.set(ResultsSheet.saveLabel(current, current.session()));
           });
       assertEquals("Save video", label.get());
     } finally {

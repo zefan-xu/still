@@ -33,22 +33,25 @@ public final class Format {
     return video ? Math.min(width, height) + "p" : width + " × " + height;
   }
 
+  /** "video", "gif" or "photo" for the names extractors use; other kinds are returned as given. */
   public static String kind(String kind) {
     switch (kind.toLowerCase(Locale.ROOT)) {
       case "video":
-        return "Video";
+        return "video";
       case "gif":
       case "animated_gif":
-        return "GIF";
+        return "gif";
       case "photo":
       case "image":
-        return "Photo";
+        return "photo";
       default:
-        return kind.isEmpty() ? "Media" : kind.substring(0, 1).toUpperCase(Locale.ROOT) + kind.substring(1);
+        return kind;
     }
   }
 
-  public static String count(int n, String singular) {
-    return n + " " + (n == 1 ? singular : singular + "s");
+  /** A kind the app has no word for, as a label: "audio" reads "Audio". */
+  public static String capitalized(String kind) {
+    if (kind.isEmpty()) return kind;
+    return kind.substring(0, 1).toUpperCase(Locale.ROOT) + kind.substring(1);
   }
 }
