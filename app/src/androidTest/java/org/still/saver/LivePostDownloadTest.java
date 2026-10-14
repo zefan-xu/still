@@ -20,7 +20,9 @@ import java.util.UUID;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.still.saver.core.Media;
 import org.still.saver.core.Post;
@@ -33,6 +35,8 @@ import org.still.saver.core.Variant;
  */
 @RunWith(AndroidJUnit4.class)
 public final class LivePostDownloadTest {
+  @Rule public final TestName testName = new TestName();
+
   @Test
   public void xPhotosAndVideoInOnePost() throws Exception {
     verify("x-mixed", "video,photo,photo", "https://x.com/i/status/1623739803874349067");
@@ -93,7 +97,11 @@ public final class LivePostDownloadTest {
     try (TestFixtures fixture = new TestFixtures(2)) {
       Context context = fixture.app;
       boolean originalWifi = DownloadStore.prefs(context).getBoolean("wifi", false);
-      JSONObject result = new JSONObject().put("platform", name).put("source", source);
+      JSONObject result =
+          new JSONObject()
+              .put("platform", name)
+              .put("test", "LivePostDownloadTest#" + testName.getMethodName())
+              .put("source", source);
       JSONArray items = new JSONArray();
       result.put("items", items);
       long started = SystemClock.elapsedRealtime();
@@ -149,7 +157,12 @@ public final class LivePostDownloadTest {
         }
         result.put("passed", true);
       } catch (Exception | AssertionError failure) {
-        result.put("passed", false).put("error", failure.toString());
+        result
+            .put("passed", false)
+            .put("category", LiveFailure.category(failure))
+            .put("error", failure.toString());
+        Throwable cause = failure.getCause();
+        if (cause != null) result.put("cause", cause.toString());
         throw failure;
       } finally {
         DownloadStore.prefs(context).edit().putBoolean("wifi", originalWifi).commit();

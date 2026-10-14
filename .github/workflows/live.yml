@@ -20,6 +20,10 @@ jobs:
     name: Real downloads from every platform
     runs-on: ubuntu-26.04
     timeout-minutes: 90
+    outputs:
+      verdict: ${{ steps.summary.outputs.verdict }}
+      blocked: ${{ steps.summary.outputs.blocked }}
+      broken: ${{ steps.summary.outputs.broken }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -47,8 +51,11 @@ jobs:
           disk-size: 4096M
           script: python3 scripts/test.py live --quality ${{ inputs.quality || 'both' }}
       - name: Summarize
+        id: summary
         if: always()
-        run: python3 scripts/ci_summary.py >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          python3 scripts/ci_summary.py >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/ci_summary.py --live-outputs | tee -a "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -56,27 +63,77 @@ jobs:
           path: artifacts/test-runs/
 
   report:
-    name: Track platform breakage in an issue
+    name: Track broken and blocked platforms in issues
     needs: live
     if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-26.04
     permissions:
+      actions: read
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       RESULT: ${{ needs.live.result }}
+      LIVE_VERDICT: ${{ needs.live.outputs.verdict }}
+      BLOCKED: ${{ needs.live.outputs.blocked }}
+      BROKEN: ${{ needs.live.outputs.broken }}
     steps:
-      - name: Open, update or close the live-check issue
+      - name: Decide this week's verdict
+        id: week
+        run: |
+          if [ "$RESULT" = success ]; then verdict=passed
+          elif [ "$LIVE_VERDICT" = blocked ]; then verdict=blocked
+          else verdict=broken
+          fi
+          mkdir -p week && echo "$verdict" > week/verdict
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+      # Later scheduled runs read this to count blocked-only weeks in a row.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: live-verdict
+          path: week/
+          retention-days: 35
+      - name: Open, update or close the live-check and live-blocked issues
+        env:
+          VERDICT: ${{ steps.week.outputs.verdict }}
         run: |
           gh label create live-check --color D97757 --description "Weekly real-download check" 2>/dev/null || true
-          open=$(gh issue list --label live-check --state open --json number --jq '.[0].number')
-          if [ "$RESULT" = success ]; then
-            if [ -n "$open" ]; then gh issue close "$open" --comment "Every platform downloads again: $RUN_URL"; fi
-          elif [ -n "$open" ]; then
-            gh issue comment "$open" --body "Still failing on $(date -u +%F): $RUN_URL"
-          else
-            gh issue create --label live-check --title "A platform stopped downloading" --body \
-              "The weekly live check failed: $RUN_URL. The job artifact has per-platform JSON with the exact error. A public sample may have been deleted, or a platform changed its pages."
-          fi
+          gh label create live-blocked --color FBCA04 --description "A platform refused GitHub's network three weeks in a row" 2>/dev/null || true
+          check=$(gh issue list --label live-check --state open --json number --jq '.[0].number')
+          blocked_issue=$(gh issue list --label live-blocked --state open --json number --jq '.[0].number')
+          case "$VERDICT" in
+            passed)
+              for open in $check $blocked_issue; do gh issue close "$open" --comment "Every platform downloads again: $RUN_URL"; done
+              ;;
+            broken)
+              detail="Broken: ${BROKEN:-see the job log}. Blocked: ${BLOCKED:-none}."
+              if [ -n "$check" ]; then
+                gh issue comment "$check" --body "Still failing on $(date -u +%F): $RUN_URL. $detail"
+              else
+                gh issue create --label live-check --title "A platform stopped downloading" --body \
+                  "The weekly live check failed: $RUN_URL. $detail The job summary lists each error and the artifact has per-platform JSON. A public sample may have been deleted, or a platform changed its pages."
+              fi
+              ;;
+            blocked)
+              if [ -n "$check" ]; then
+                gh issue close "$check" --comment "No platform is broken on $(date -u +%F): $RUN_URL. Blocked from GitHub's network: $BLOCKED."
+              fi
+              streak=1
+              for id in $(gh run list --workflow live.yml --event schedule --status completed --limit 2 --json databaseId --jq '.[].databaseId'); do
+                rm -rf previous
+                gh run download "$id" --name live-verdict --dir previous 2>/dev/null || break
+                [ "$(cat previous/verdict)" = blocked ] || break
+                streak=$((streak + 1))
+              done
+              echo "Blocked from GitHub's network, $streak scheduled week(s) in a row: $BLOCKED. Only broken platforms open \`live-check\`." >> "$GITHUB_STEP_SUMMARY"
+              if [ "$streak" -ge 3 ]; then
+                if [ -n "$blocked_issue" ]; then
+                  gh issue comment "$blocked_issue" --body "Still blocked on $(date -u +%F): $BLOCKED. $RUN_URL"
+                else
+                  gh issue create --label live-blocked --title "A platform has refused GitHub's network for three weeks" --body \
+                    "The last three weekly live checks failed only because platforms refused requests from GitHub's network (rate limits, bot checks or login walls): $BLOCKED. Latest run: $RUN_URL. The job summary has each error. The app may still work from home networks, but the live check no longer covers these platforms."
+                fi
+              fi
+              ;;
+          esac

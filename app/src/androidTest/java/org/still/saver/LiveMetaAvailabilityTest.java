@@ -13,7 +13,9 @@ import java.nio.charset.StandardCharsets;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.still.saver.core.FacebookEmbedParser;
 import org.still.saver.core.PublicPageResolver;
@@ -21,6 +23,8 @@ import org.still.saver.core.PublicPageResolver;
 /** Opt-in checks that unavailable posts and posts without videos retain accurate public errors. */
 @RunWith(AndroidJUnit4.class)
 public final class LiveMetaAvailabilityTest {
+  @Rule public final TestName testName = new TestName();
+
   @Test
   public void facebookUnavailable() throws Exception {
     verify(
@@ -51,13 +55,20 @@ public final class LiveMetaAvailabilityTest {
     JSONArray results = new JSONArray();
     try {
       for (String source : sources) {
-        JSONObject result = new JSONObject().put("source", source).put("expected", expected);
+        JSONObject result =
+            new JSONObject()
+                .put("test", "LiveMetaAvailabilityTest#" + testName.getMethodName())
+                .put("source", source)
+                .put("expected", expected)
+                .put("passed", false);
         results.put(result);
         try {
           new PublicPageResolver(context, "https://api.fxtwitter.com").resolve(source);
           fail("Expected a public availability error for " + source);
         } catch (IOException error) {
           result.put("message", error.getMessage());
+          if (!error.getMessage().contains(expected))
+            result.put("category", LiveFailure.category(error));
           assertTrue(error.getMessage(), error.getMessage().contains(expected));
           if (reportName.startsWith("facebook"))
             assertTrue(error instanceof FacebookEmbedParser.UnavailableException);

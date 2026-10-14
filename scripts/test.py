@@ -102,6 +102,60 @@ def quality_metrics(root=None):
     return metrics
 
 
+def live_outcome(directory, suites):
+    """Sorts live probes into passed, blocked (the platform refused this network) and broken.
+
+    JUnit decides pass or fail; a failed probe is blocked only when every failed attempt in its
+    JSON says so. Failures with no JSON, and runner errors, are broken."""
+    rank = {"passed": 0, "blocked": 1, "broken": 2}
+    worst = {}
+
+    def first_line(result):
+        return (result["stack"].strip().splitlines() or [""])[0]
+
+    def record(name, status, error=""):
+        if name not in worst or rank[status] > rank[worst[name][0]]:
+            worst[name] = (status, error)
+
+    for suite in suites:
+        if "evidence" not in suite:
+            continue
+        results = {r["class"].rsplit(".", 1)[-1] + "#" + r["test"]: r for r in suite["tests"]}
+        explained = set()
+        for filename in suite["evidence"]:
+            platform = filename[len("live-"):-len(".json")]
+            try:
+                attempts = json.loads((directory / suite["name"] / filename).read_text())
+            except ValueError:
+                record(platform, "broken", f"Unreadable {filename}")
+                continue
+            tests = {a.get("test") for a in attempts}
+            explained |= tests
+            if any(results.get(t, {}).get("status") == 0 for t in tests):
+                record(platform, "passed")
+                continue
+            failures = [a for a in attempts if not a.get("passed")]
+            if failures:
+                last = failures[-1]
+                error = " caused by ".join(filter(None, (last.get("error") or last.get("message"), last.get("cause"))))
+            else:
+                error = next((first_line(results[t]) for t in tests if t in results), "")
+            blocked = failures and all(a.get("category") == "blocked" for a in failures)
+            record(platform, "blocked" if blocked else "broken", error)
+        failed = {f"{r['class']}#{r['test']} failed or skipped (status {r['status']})" for r in suite["tests"]
+                  if r["status"] != 0}
+        for name, result in results.items():
+            if result["status"] != 0 and name not in explained:
+                record(name, "broken", first_line(result))
+        # A failing JUnit run always lacks the "OK (n tests)" line; anything else is a runner problem.
+        for error in suite["errors"]:
+            if error not in failed and error != "Missing or inconsistent JUnit success summary":
+                record(suite["name"], "broken", error)
+    return {"passed": sorted(n for n, (s, _) in worst.items() if s == "passed"),
+            **{status: {n: e for n, (s, e) in sorted(worst.items()) if s == status}
+               for status in ("blocked", "broken")}}
+
+
 def find_sdk():
     candidates = [os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")]
     properties = ROOT / "local.properties"
@@ -252,6 +306,7 @@ class Run:
                 (destination / filename).write_bytes(result.stdout)
                 collected.append(filename)
         self.report["suites"][-1]["evidence"] = collected
+        self.report["live"] = live_outcome(self.directory, self.report["suites"])
         # Media copies are owned by these probes; keep JSON in app storage, remove large copies.
         for platform in LIVE_REPORTS:
             subprocess.run(self.adb_args("shell", "run-as", PACKAGE, "rm", "-f", f"files/live-{platform}.media"),
