@@ -1,0 +1,26 @@
+name: Something else is broken
+description: A crash, a stuck download, or anything that doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Share a post to Still
+        2. Tap Save
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Still version, Android version and phone
+      description: Android shows Still's version under Settings → Apps → Still.
+      placeholder: Still 1.1.2, Android 15, Pixel 8

@@ -163,7 +163,7 @@ public final class FacebookEmbedParser {
     String found = "";
     for (String key : new String[] {"video_id", "videoId", "id"}) {
       Object value = object.opt(key);
-      if (value == null || value == JSONObject.NULL) continue;
+      if (value == null || JSONObject.NULL.equals(value)) continue;
       if (value instanceof String || value instanceof Number) {
         String id = String.valueOf(value);
         if (!id.matches(ID) || (!found.isEmpty() && !found.equals(id))) return "<invalid>";

@@ -11,3 +11,5 @@ artifacts/
 
 __pycache__/
 *.pyc
+.jqwik-database
+*.p12

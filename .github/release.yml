@@ -1,0 +1,14 @@
+changelog:
+  exclude:
+    labels: [skip-changelog]
+  categories:
+    - title: In the app
+      labels: [app]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Tests and tooling
+      labels: [tests, ci]
+    - title: Documentation
+      labels: [docs]
+    - title: Other changes
+      labels: ['*']

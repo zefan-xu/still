@@ -10,11 +10,14 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = "org.still.saver"
 RUNNER = PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner"
+NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
+NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
 OFFLINE = [
     "DeviceRegressionTest", "FunctionalUiTest", "MediaWorkflowTest",
     "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
@@ -27,6 +30,8 @@ LIVE_REPORTS = ["x", "bluesky", "instagram", "tiktok", "facebook", "facebook-vid
                 "facebook-unavailable", "threads-no-video", "threads-unavailable",
                 "x-mixed", "x-gif", "instagram-carousel", "bluesky-photo", "pinterest-photo",
                 "tiktok-photo", "threads-photos", "facebook-publisher"]
+SCREENSHOTS = [f"{screen}-{theme}" for screen in ("library", "save", "actions", "settings")
+               for theme in ("light", "dark")] + ["viewer"]
 
 
 def parse_instrumentation(output, expected_count=None, selectors=()):
@@ -79,6 +84,25 @@ def parse_instrumentation(output, expected_count=None, selectors=()):
     return {"passed": not errors, "count": len(finished), "tests": finished, "errors": errors}
 
 
+def quality_metrics(root=None):
+    """Line/branch coverage and mutation score from the latest reports, when present."""
+    root = root or ROOT
+    metrics = {}
+    jacoco = root / "core-tests/build/reports/jacoco/test/jacocoTestReport.xml"
+    if jacoco.exists():
+        for counter in ET.parse(jacoco).getroot().findall("counter"):
+            if counter.get("type") in ("LINE", "BRANCH"):
+                covered, missed = int(counter.get("covered")), int(counter.get("missed"))
+                metrics[counter.get("type").lower() + "_coverage"] = round(covered / max(1, covered + missed), 4)
+    pitest = root / "core-tests/build/reports/pitest/mutations.xml"
+    if pitest.exists():
+        statuses = [m.get("status") for m in ET.parse(pitest).getroot().findall("mutation")]
+        killed = sum(s in ("KILLED", "TIMED_OUT", "MEMORY_ERROR") for s in statuses)
+        metrics["mutation_score"] = round(killed / max(1, len(statuses)), 4)
+        metrics["mutants"] = len(statuses)
+    return metrics
+
+
 def find_sdk():
     candidates = [os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")]
     properties = ROOT / "local.properties"
@@ -123,9 +147,18 @@ class Run:
         output = log.read_text(errors="replace")
         return code, output, log.name
 
+    def build_apks(self):
+        code, _, log = self.command("build", [str(ROOT / "gradlew"), ":app:assembleDebug", ":app:assembleDebugAndroidTest"])
+        self.report["suites"].append({"name": "build", "passed": code == 0, "exit_code": code, "log": log})
+        if code:
+            raise RuntimeError(f"APK build failed; see {self.directory / log}")
+
     def gradle(self):
-        code, _, log = self.command("local", [str(ROOT / "gradlew"), ":core-tests:test",
-                                 ":app:lintDebug", ":app:assembleDebug", ":app:assembleDebugAndroidTest"])
+        # check = JVM unit/property tests, Error Prone and coverage floors; pitest = mutation floor;
+        # assembleRelease runs lintVital and proves the unsigned release variant still builds.
+        code, _, log = self.command("local", [str(ROOT / "gradlew"), ":core-tests:check", ":core-tests:pitest",
+                                 ":app:lintDebug", ":app:assembleDebug", ":app:assembleDebugAndroidTest",
+                                 ":app:assembleRelease"], timeout=2400)
         results = list((ROOT / "core-tests/build/test-results/test").glob("TEST-*.xml"))
         count = failures = 0
         for path in results:
@@ -134,7 +167,7 @@ class Run:
             failures += int(suite.get("failures", "0")) + int(suite.get("errors", "0")) + int(suite.get("skipped", "0"))
         passed = code == 0 and count > 0 and failures == 0
         self.report["suites"].append({"name": "local", "passed": passed, "exit_code": code, "log": log,
-                                     "jvm_tests": count, "jvm_failures_or_skips": failures})
+                                     "jvm_tests": count, "jvm_failures_or_skips": failures, **quality_metrics()})
         if not passed:
             raise RuntimeError(f"Gradle checks failed; see {self.directory / log}")
 
@@ -178,9 +211,11 @@ class Run:
     def adb_args(self, *arguments):
         return [self.adb, "-s", self.serial, *arguments]
 
-    def instrumentation(self, name, selectors, count, quality=None):
+    def instrumentation(self, name, selectors, count, quality=None, arguments=()):
         selectors = [s if s.startswith(PACKAGE + ".") else PACKAGE + "." + s for s in selectors]
         command = self.adb_args("shell", "am", "instrument", "-w", "-r", "-e", "class", ",".join(selectors))
+        for key, value in arguments:
+            command += ["-e", key, value]
         if quality:
             for platform in LIVE_REPORTS:
                 subprocess.run(self.adb_args("shell", "run-as", PACKAGE, "rm", "-f", f"files/live-{platform}.json"),
@@ -223,11 +258,67 @@ class Run:
             subprocess.run(self.adb_args("shell", "run-as", PACKAGE, "rm", "-f", f"files/live-{platform}.media"),
                            capture_output=True, timeout=30)
 
+    def presentation_mode(self, restore=None):
+        """Enters a 9:41 demo status bar with gesture navigation, or restores the given navigation overlay."""
+        def shell(*arguments):
+            return subprocess.run(self.adb_args("shell", *arguments), capture_output=True, text=True,
+                                  timeout=30, check=True).stdout
+
+        def demo(command, *extras):
+            shell("am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", command, *extras)
+
+        if restore is not None:
+            demo("exit")
+            if restore:
+                shell("cmd", "overlay", "enable-exclusive", "--category", restore)
+            return None
+        overlays = shell("cmd", "overlay", "list", "android")
+        current = next((line.split()[-1] for line in overlays.splitlines()
+                        if line.strip().startswith("[x]") and ".navbar." in line), "")
+        shell("cmd", "overlay", "enable-exclusive", "--category", NAV_GESTURAL)
+        shell("settings", "put", "global", "sysui_demo_allowed", "1")
+        # System UI registers its demo receiver only after it observes the setting change.
+        time.sleep(2)
+        demo("enter")
+        demo("clock", "-e", "hhmm", "0941")
+        demo("battery", "-e", "level", "100", "-e", "plugged", "false")
+        demo("network", "-e", "wifi", "show", "-e", "level", "4", "-e", "fully", "true")
+        demo("network", "-e", "mobile", "hide")
+        demo("notifications", "-e", "visible", "false")
+        time.sleep(2)
+        return current if current != NAV_GESTURAL else ""
+
+    def collect_screenshots(self):
+        destination = self.directory / "screenshots"
+        destination.mkdir()
+        missing = []
+        for screen in SCREENSHOTS:
+            result = subprocess.run(self.adb_args("exec-out", "run-as", PACKAGE, "cat", f"files/readme/{screen}.png"),
+                                    capture_output=True, timeout=60)
+            if result.returncode or not result.stdout.startswith(b"\x89PNG\r\n\x1a\n"):
+                missing.append(screen)
+                continue
+            (destination / f"{screen}.png").write_bytes(result.stdout)
+        subprocess.run(self.adb_args("shell", "run-as", PACKAGE, "rm", "-rf", "files/readme"),
+                       capture_output=True, timeout=30)
+        suite = self.report["suites"][-1]
+        suite["screenshots"] = str(destination.relative_to(ROOT))
+        if missing:
+            suite["passed"] = False
+            suite["errors"].append("Missing screenshots: " + ", ".join(missing))
+            return False
+        print(f"Screenshots: {destination}", flush=True)
+        return True
+
     def execute(self):
         try:
             self.python_tests()
-            if not self.args.skip_build:
+            if self.args.skip_build:
+                pass
+            elif self.args.mode in ("local", "all"):
                 self.gradle()
+            else:
+                self.build_apks()
             if self.args.mode != "local":
                 self.device()
                 if self.args.mode in ("device", "all"):
@@ -239,6 +330,14 @@ class Run:
                         selectors = self.args.classes or (LIVE if quality == "highest" else ["LivePlatformDownloadTest"])
                         self.instrumentation("live-" + quality, selectors,
                                              None if self.args.classes else (24 if quality == "highest" else 11), quality)
+                if self.args.mode == "screenshots":
+                    restore = self.presentation_mode()
+                    try:
+                        if self.instrumentation("screenshots", ["ReadmeScreenshots"], 1,
+                                                arguments=[("readmeScreenshots", "true")]):
+                            self.collect_screenshots()
+                    finally:
+                        self.presentation_mode(restore)
             self.report["passed"] = bool(self.report["suites"]) and all(s["passed"] for s in self.report["suites"])
         except (RuntimeError, OSError, subprocess.SubprocessError, ET.ParseError, ValueError) as error:
             self.report["error"] = str(error)
@@ -246,13 +345,14 @@ class Run:
         finally:
             self.report["finished_utc"] = datetime.now(timezone.utc).isoformat()
             (self.directory / "report.json").write_text(json.dumps(self.report, indent=2) + "\n")
+            print(f"{'PASS' if self.report['passed'] else 'FAIL'}: {self.args.mode}", flush=True)
             print(f"Report: {self.directory / 'report.json'}", flush=True)
         return 0 if self.report["passed"] else 1
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["local", "device", "live", "all"])
+    parser.add_argument("mode", choices=["local", "device", "live", "all", "screenshots"])
     parser.add_argument("--serial", help="ADB serial; required when several devices are connected")
     parser.add_argument("--allow-physical", action="store_true", help="Use the explicitly selected dedicated physical test device")
     parser.add_argument("--quality", choices=["highest", "smallest", "both"], default="both")

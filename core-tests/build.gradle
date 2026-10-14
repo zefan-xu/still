@@ -1,4 +1,9 @@
-plugins { id 'java' }
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'info.solidsoft.pitest' version '1.19.0'
+    id 'net.ltgt.errorprone' version '5.1.1'
+}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -22,4 +27,57 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.23.2'
     implementation 'org.json:json:20240303'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'net.jqwik:jqwik:1.10.2'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:-options']
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+        // The suggested replacements need Java 10+ APIs or Guava, which minSdk 24 code cannot use.
+        disable('JdkObsolete', 'StringSplitter')
+        // Tests construct inputs freely; the shipped sources are the subject of the check.
+        if (name == 'compileTestJava') disableAllWarnings = true
+    }
+    if (name == 'compileJava') options.compilerArgs += ['-Werror']
+}
+
+test {
+    useJUnitPlatform()
+    // Each run explores new random inputs; a failure prints the seed that reproduces it.
+    systemProperty 'jqwik.database', layout.buildDirectory.file('jqwik-database').get().asFile.path
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Floors sit just under measured coverage; raise them when tests improve, never lower them.
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit { counter = 'LINE'; minimum = 0.87 }
+            limit { counter = 'BRANCH'; minimum = 0.72 }
+        }
+    }
+}
+check.dependsOn jacocoTestCoverageVerification
+
+pitest {
+    pitestVersion = '1.30.0'
+    junit5PluginVersion = '1.2.3'
+    targetClasses = ['org.still.saver.*']
+    threads = Runtime.runtime.availableProcessors()
+    outputFormats = ['HTML', 'XML']
+    timestampedReports = false
+    // Percent of injected bugs the tests must catch; same ratchet rule as the coverage floors.
+    mutationThreshold = 73
 }
