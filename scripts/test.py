@@ -19,7 +19,7 @@ RUNNER = PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner"
 NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
 NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
 OFFLINE = [
-    "DeviceRegressionTest", "FunctionalUiTest", "MediaWorkflowTest",
+    "DeviceRegressionTest", "FunctionalUiTest", "MediaWorkflowTest", "OnboardingTest",
     "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
 ]
 LIVE = ["LivePlatformDownloadTest", "LivePostDownloadTest", "LiveMetaAvailabilityTest",
@@ -323,7 +323,7 @@ class Run:
                 self.device()
                 if self.args.mode in ("device", "all"):
                     self.instrumentation("device-offline", self.args.classes or OFFLINE,
-                                         None if self.args.classes else 23)
+                                         None if self.args.classes else 24)
                 if self.args.mode in ("live", "all"):
                     qualities = ["highest", "smallest"] if self.args.quality == "both" else [self.args.quality]
                     for quality in qualities:

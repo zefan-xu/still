@@ -66,7 +66,10 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   private TextView statusText;
   private ProgressLine statusLine;
   private TextView statusCancel, statusLinks;
-  private boolean resumed, searching, resultsShowing;
+  /** Opens with the link field focused; sent by the tutorial's "Paste a link". */
+  static final String EXTRA_COMPOSE = "org.still.saver.extra.COMPOSE";
+
+  private boolean resumed, searching, resultsShowing, composing;
   private String filter = "", dismissedGif = "", hintState;
   private int refreshTicket, appliedTicket;
 
@@ -106,9 +109,30 @@ public final class MainActivity extends Activity implements SaveSession.Host {
       settleComposer();
       filter = state.getString("filter", "");
       if (state.getBoolean("searching", false)) setSearching(true);
+    } else if (OnboardingActivity.due(this, getIntent())) {
+      startActivity(new Intent(this, OnboardingActivity.class));
+      overridePendingTransition(0, 0);
+    } else {
+      composing = getIntent().getBooleanExtra(EXTRA_COMPOSE, false);
     }
     refreshNow();
     session.attach(this);
+  }
+
+  /** Puts the cursor in the link field with the keyboard up, as the tutorial promised. */
+  private void compose() {
+    composing = false;
+    getIntent().removeExtra(EXTRA_COMPOSE);
+    if (searching) setSearching(false);
+    input.requestFocus();
+    InputMethodManager keyboard = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+    input.post(() -> keyboard.showSoftInput(input, 0));
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    if (hasFocus && composing) compose();
   }
 
   private EntryActions.Listener actionsListener() {
@@ -622,6 +646,10 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     super.onNewIntent(intent);
     setIntent(intent);
     refreshNow();
+    if (intent.getBooleanExtra(EXTRA_COMPOSE, false)) {
+      composing = true;
+      if (hasWindowFocus()) compose();
+    }
   }
 
   @Override

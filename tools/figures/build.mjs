@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as k from "../anatomy/kit/iso-kit.mjs";
+import * as L from "../anatomy/kit/lathe.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../..");
@@ -291,56 +292,66 @@ const POST_TOP = COLLAR_Z + COLLAR_H + 3;
 const figPoints = [...k.boxCorners(PLINTH, -FOOT_H, FLOOR), ...k.boxCorners(LIP.outer, CHUTE_TOP, CHUTE_TOP + LIP_H), ...k.boxCorners(k.insetPlan(POST, -0.6), POST_TOP, POST_TOP + 1.2)];
 const { P: FP, height: FIG_H } = fitted(figPoints, FIG_W, 6);
 
-function screw(art, x, y, z) {
-  art.stroke(k.ring(x, y, 0.85, z, FP, 16), "lo");
-  art.dots([k.iso([x, y, z], FP)], 0.36, "mid", 0.9);
+function screw(art, x, y, z, P = FP) {
+  art.stroke(k.ring(x, y, 0.85, z, P, 16), "lo");
+  art.dots([k.iso([x, y, z], P)], 0.36, "mid", 0.9);
 }
 const lipCorners = (() => {
   const { x, y, w, d } = LIP.outer;
   return { far: [x + 1.3, y + 1.3], right: [x + w - 1.3, y + 1.3], left: [x + 1.3, y + d - 1.3], near: [x + w - 1.3, y + d - 1.3] };
 })();
 
-function post(art) {
+function post(art, P) {
   const [cx, cy] = [POST.x + POST.w / 2, POST.y + POST.d / 2];
-  art.solid(k.slabOf(k.insetPlan(POST, -1.6), FLOOR, 1.4, FP, 3, 0.4), { tone: "mid" });
-  screw(art, POST.x - 0.4, POST.y + POST.d + 0.6, FLOOR + 1.4);
-  screw(art, POST.x + POST.w + 0.6, POST.y - 0.4, FLOOR + 1.4);
-  art.solid(k.slabOf(POST, FLOOR + 1.4, COLLAR_Z - FLOOR - 1.4, FP, 3), { tone: "mid", crease: "none" });
-  art.solid(k.slabOf(k.insetPlan(POST, -0.8), COLLAR_Z, COLLAR_H, FP, 3, 0.4), { tone: "mid" });
-  art.solid(k.slabOf(POST, COLLAR_Z + COLLAR_H, POST_TOP - COLLAR_Z - COLLAR_H, FP, 3), { tone: "mid", crease: "none" });
-  art.solid(k.slabOf(k.insetPlan(POST, -0.6), POST_TOP, 1.2, FP, 3, 0.4), { tone: "mid" });
+  art.solid(k.slabOf(k.insetPlan(POST, -1.6), FLOOR, 1.4, P, 3, 0.4), { tone: "mid" });
+  screw(art, POST.x - 0.4, POST.y + POST.d + 0.6, FLOOR + 1.4, P);
+  screw(art, POST.x + POST.w + 0.6, POST.y - 0.4, FLOOR + 1.4, P);
+  art.solid(k.slabOf(POST, FLOOR + 1.4, COLLAR_Z - FLOOR - 1.4, P, 3), { tone: "mid", crease: "none" });
+  art.solid(k.slabOf(k.insetPlan(POST, -0.8), COLLAR_Z, COLLAR_H, P, 3, 0.4), { tone: "mid" });
+  art.solid(k.slabOf(POST, COLLAR_Z + COLLAR_H, POST_TOP - COLLAR_Z - COLLAR_H, P, 3), { tone: "mid", crease: "none" });
+  art.solid(k.slabOf(k.insetPlan(POST, -0.6), POST_TOP, 1.2, P, 3, 0.4), { tone: "mid" });
   const mid = [(cx + LIP.outer.x + 1.3) / 2, (cy + LIP.outer.y + 1.3) / 2];
   const reach = Math.hypot(LIP.outer.x + 1.3 - cx, LIP.outer.y + 1.3 - cy) / 2;
-  art.solid(k.extrude(turned(k.ringOf(box(-reach, reach, -1.4, 1.4, 0.6), 2), 45, mid), ARM_Z, ARM_H, FP, { bevel: 0.3 }), { tone: "mid" });
-  screw(art, ...mid, ARM_Z + ARM_H);
+  art.solid(k.extrude(turned(k.ringOf(box(-reach, reach, -1.4, 1.4, 0.6), 2), 45, mid), ARM_Z, ARM_H, P, { bevel: 0.3 }), { tone: "mid" });
+  screw(art, ...mid, ARM_Z + ARM_H, P);
+}
+
+// The plinth on its feet, the post, the tray's far walls and the stack: everything that lies
+// behind and below the print's whole path, apart from the chute.
+function trayBase(art, P) {
+  for (const [x, y] of byDepth(P)(k.corners(PLINTH, 5))) art.solid(k.cylinder(x, y, 2, -FOOT_H, FOOT_H, P, 20), { tone: "lo" });
+  art.solid(k.slabOf(PLINTH, 0, FLOOR, P, 4, 0.5), { tone: "lo" });
+  post(art, P);
+  art.solid(k.extrude(TRAY.far, FLOOR, TRAY_TOP - FLOOR, P, { convex: false, bevel: 0.4 }), { tone: "mid" });
+  STACK_TURNS.forEach((turn, index) => {
+    const z = FLOOR + index * PRINT_H;
+    const last = index === STACK_TURNS.length - 1;
+    art.solid(k.extrude(turned(k.ringOf(PRINT, 3), turn, STACK_SHIFT[index]), z, PRINT_H, P), {
+      tone: "hi",
+      inner: last ? (a) => a.stroke(k.onTop(turned(k.ringOf(PHOTO, 2), turn, STACK_SHIFT[index]), z + PRINT_H, P, true), "faint") : undefined,
+    });
+  });
+}
+
+function chuteBack(art, P) {
+  art.solid(k.extrude(CHUTE.far, CHUTE_Z, CHUTE_TOP - CHUTE_Z, P, { convex: false }), { tone: "mid" });
+  art.solid(k.extrude(LIP.far, CHUTE_TOP, LIP_H, P, { convex: false, bevel: 0.3 }), { tone: "mid" });
+  screw(art, ...lipCorners.far, CHUTE_TOP + LIP_H, P);
 }
 
 function trayBack() {
   const art = new Art(FIG_LINES);
   haloUnder(art, PLINTH, -FOOT_H, FP, { grow: 1.1, drop: 3, within: FIG_W });
-  for (const [x, y] of byDepth(FP)(k.corners(PLINTH, 5))) art.solid(k.cylinder(x, y, 2, -FOOT_H, FOOT_H, FP, 20), { tone: "lo" });
-  art.solid(k.slabOf(PLINTH, 0, FLOOR, FP, 4, 0.5), { tone: "lo" });
-  post(art);
-  art.solid(k.extrude(TRAY.far, FLOOR, TRAY_TOP - FLOOR, FP, { convex: false, bevel: 0.4 }), { tone: "mid" });
-  STACK_TURNS.forEach((turn, index) => {
-    const z = FLOOR + index * PRINT_H;
-    const last = index === STACK_TURNS.length - 1;
-    art.solid(k.extrude(turned(k.ringOf(PRINT, 3), turn, STACK_SHIFT[index]), z, PRINT_H, FP), {
-      tone: "hi",
-      inner: last ? (a) => a.stroke(k.onTop(turned(k.ringOf(PHOTO, 2), turn, STACK_SHIFT[index]), z + PRINT_H, FP, true), "faint") : undefined,
-    });
-  });
-  art.solid(k.extrude(CHUTE.far, CHUTE_Z, CHUTE_TOP - CHUTE_Z, FP, { convex: false }), { tone: "mid" });
-  art.solid(k.extrude(LIP.far, CHUTE_TOP, LIP_H, FP, { convex: false, bevel: 0.3 }), { tone: "mid" });
-  screw(art, ...lipCorners.far, CHUTE_TOP + LIP_H);
+  trayBase(art, FP);
+  chuteBack(art, FP);
   return art;
 }
 
-function trayPrint() {
+function trayPrint(P = FP) {
   const art = new Art(FIG_LINES);
   const top = REST_Z + PRINT_H;
-  const photo = k.onTop(k.ringOf(PHOTO, 2), top, FP, true);
-  art.solid(k.extrude(k.ringOf(PRINT, 3), REST_Z, PRINT_H, FP), {
+  const photo = k.onTop(k.ringOf(PHOTO, 2), top, P, true);
+  art.solid(k.extrude(k.ringOf(PRINT, 3), REST_Z, PRINT_H, P), {
     tone: "hi",
     inner: (a) => {
       a.fill(photo, "lit");
@@ -350,31 +361,225 @@ function trayPrint() {
   return art;
 }
 
-function trayFront() {
+function trayFront(P = FP) {
   const art = new Art(FIG_LINES);
-  art.solid(k.extrude(CHUTE.near, CHUTE_Z, CHUTE_TOP - CHUTE_Z, FP, { convex: false }), {
+  art.solid(k.extrude(CHUTE.near, CHUTE_Z, CHUTE_TOP - CHUTE_Z, P, { convex: false }), {
     tone: "mid",
-    inner: (a) => a.stroke(k.ringSeam(CHUTE.near, CHUTE_Z + 2.2, FP), "faint"),
+    inner: (a) => a.stroke(k.ringSeam(CHUTE.near, CHUTE_Z + 2.2, P), "faint"),
   });
-  art.solid(k.extrude(LIP.near, CHUTE_TOP, LIP_H, FP, { convex: false, bevel: 0.3 }), { tone: "mid" });
-  for (const corner of ["right", "left", "near"]) screw(art, ...lipCorners[corner], CHUTE_TOP + LIP_H);
+  art.solid(k.extrude(LIP.near, CHUTE_TOP, LIP_H, P, { convex: false, bevel: 0.3 }), { tone: "mid" });
+  for (const corner of ["right", "left", "near"]) screw(art, ...lipCorners[corner], CHUTE_TOP + LIP_H, P);
 
   const { x: ox0, y: oy0, w, d } = TRAY.outer;
   const [ox1, oy1, iy1, ix1] = [ox0 + w, oy0 + d, oy0 + d - 2.4, ox0 + w - 2.4];
-  art.solid(k.slabOf(box(ox0, -NOTCH.x, iy1, oy1, 0.6), FLOOR, TRAY_TOP - FLOOR, FP, 2, 0.4), { tone: "mid" });
-  art.solid(k.slabOf(box(-NOTCH.x, NOTCH.x, iy1, oy1), FLOOR, NOTCH.z - FLOOR, FP, 2, 0.4), { tone: "mid" });
+  art.solid(k.slabOf(box(ox0, -NOTCH.x, iy1, oy1, 0.6), FLOOR, TRAY_TOP - FLOOR, P, 2, 0.4), { tone: "mid" });
+  art.solid(k.slabOf(box(-NOTCH.x, NOTCH.x, iy1, oy1), FLOOR, NOTCH.z - FLOOR, P, 2, 0.4), { tone: "mid" });
   const corner = [[NOTCH.x, iy1], [ix1, iy1], [ix1, oy0], [ox1, oy0], [ox1, oy1], [NOTCH.x, oy1]];
-  art.solid(k.extrude(corner, FLOOR, TRAY_TOP - FLOOR, FP, { convex: false, bevel: 0.4 }), { tone: "mid" });
+  art.solid(k.extrude(corner, FLOOR, TRAY_TOP - FLOOR, P, { convex: false, bevel: 0.4 }), { tone: "mid" });
   const label = box(ox1, ox1 + 0.5, -12, 0, 0.2);
-  art.solid(k.slabOf(label, 5, 4, FP, 2), { tone: "lo", crease: "none" });
+  art.solid(k.slabOf(label, 5, 4, P, 2), { tone: "lo", crease: "none" });
   [-3.2, -5.4, -7.6].forEach((to, row) => {
-    art.stroke(k.segment([ox1 + 0.5, -10.8, 7.9 - row * 0.95], [ox1 + 0.5, to, 7.9 - row * 0.95], FP), "lo", 0.4);
+    art.stroke(k.segment([ox1 + 0.5, -10.8, 7.9 - row * 0.95], [ox1 + 0.5, to, 7.9 - row * 0.95], P), "lo", 0.4);
   });
   return art;
 }
 
 // Screen offset of the print layer at the start of its drop, relative to where it is drawn.
 const START_OFFSET = k.axisVector(FP, [0, 0, START_Z - REST_Z]);
+
+// ---------------------------------------------------------------------------------------------
+// The onboarding figure: the same plinth, tray, chute and post, fed from two sides at the
+// height of the chute's lip. On the left a roller conveyor runs out of a covered hood: a print
+// shared from another app arrives by itself. On the right a feed table carries a hand pusher:
+// a print you paste is laid down and pushed in. Either way it crosses the lip and drops into
+// the tray, as in the empty state.
+//
+// Every feed part lies outside the lip's plan (beside it, or under its overhang), so the feeds
+// are painted after the post and before the chute walls: wherever a feed and the chute overlap
+// on screen, the chute is the nearer. The print and the pusher stay level, so one translate
+// moves each; the pusher never reaches the lip, and the print only ever passes above the walls
+// it crosses or inside the chute and tray, so neither changes its slot. The hood's roof and
+// near wall are painted last, over the print waiting inside.
+
+const TUT_W = 320;
+const FEED_TOP = 41.6;
+const ROLLER_R = 1.3;
+const FOOT_Z = -FOOT_H;
+
+const SHARE = {
+  x0: -80,
+  x1: -20,
+  rail: [22.3, 23.7],
+  railZ: 38.4,
+  railTop: 41,
+  column: [-62, 0],
+  beam: [-64, -60],
+  hood: { x1: -46, top: 47, roof: 1.2 },
+  start: -63,
+};
+const PASTE = {
+  plan: box(-17, 17, -84, -26, 1.2),
+  z: 38.8,
+  column: [0, -58],
+  beam: [-60, -56],
+  stop: box(-16, 16, -83.6, -81.6, 0.6),
+  stopH: 2.4,
+  pusher: box(-13, 13, -81.6, -78.6, 0.6),
+  pusherH: 2.8,
+  knob: { r: 2.4, h: 4 },
+  gap: 2.6,
+};
+// The print waits on the table with its far edge `gap` ahead of the pusher; the pusher stops
+// 0.2 short of the lip, and the print glides on to the middle of the chute.
+PASTE.start = PASTE.pusher.y + PASTE.pusher.d + PASTE.gap - PRINT.y;
+PASTE.stroke = LIP.outer.y - 0.2 - (PASTE.pusher.y + PASTE.pusher.d);
+const FOOT_R = 5.6;
+const ROOF = box(SHARE.x0 - 2, SHARE.hood.x1 + 0.6, -SHARE.rail[1] - 0.6, SHARE.rail[1] + 0.6, 0.6);
+const KNOB_AT = [0, PASTE.pusher.y + PASTE.pusher.d / 2];
+
+const circlePoints = ([cx, cy], r, z) => k.circleRing(cx, cy, r, 24).map(([x, y]) => [x, y, z]);
+const tutPoints = [
+  ...k.boxCorners(PLINTH, -FOOT_H, FLOOR),
+  ...circlePoints(SHARE.column, FOOT_R, FOOT_Z),
+  ...circlePoints(PASTE.column, FOOT_R, FOOT_Z),
+  ...k.boxCorners(ROOF, SHARE.hood.top, SHARE.hood.top + SHARE.hood.roof),
+  ...k.boxCorners(box(SHARE.x0 - 1.4, SHARE.x1, -SHARE.rail[1], SHARE.rail[1]), SHARE.railZ, SHARE.railTop),
+  ...k.boxCorners(PASTE.plan, PASTE.z, FEED_TOP + PASTE.stopH),
+  ...circlePoints(KNOB_AT, PASTE.knob.r, FEED_TOP + PASTE.pusherH + PASTE.knob.h),
+  ...k.boxCorners(k.insetPlan(POST, -0.6), POST_TOP, POST_TOP + 1.2),
+];
+const { P: TP, height: TUT_H } = fitted(tutPoints, TUT_W, 6);
+
+// A column on a round foot: flange with three screws, boss, shaft and a collar under its beam.
+function column(art, P, [cx, cy], top) {
+  const flange = FOOT_Z + 1.2;
+  art.solid(k.cylinder(cx, cy, FOOT_R, FOOT_Z, 1.2, P, 40, 0.4), { tone: "lo" });
+  const screws = [45, 165, 285].map((degrees) => {
+    const a = (degrees * Math.PI) / 180;
+    return [cx + 4 * Math.cos(a), cy + 4 * Math.sin(a)];
+  });
+  for (const [x, y] of byDepth(P)(screws)) screw(art, x, y, flange, P);
+  art.solid(k.cylinder(cx, cy, 2.9, flange, 1.4, P, 32, 0.3), { tone: "mid" });
+  art.solid(k.cylinder(cx, cy, 1.9, flange + 1.4, top - 2 - flange - 1.4, P, 28), {
+    tone: "mid",
+    crease: "none",
+    inner: (a) => a.stroke(k.sideArc(cx, cy, 1.9, flange + 6, P, 16), "faint"),
+  });
+  art.solid(k.cylinder(cx, cy, 2.8, top - 2, 2, P, 32, 0.3), { tone: "mid" });
+}
+
+function tutorialBase(P) {
+  const art = new Art(FIG_LINES);
+  haloUnder(art, PLINTH, -FOOT_H, P, { grow: 1.1, drop: 3, within: TUT_W });
+  for (const at of [SHARE.column, PASTE.column]) {
+    const plan = { x: at[0] - FOOT_R, y: at[1] - FOOT_R, w: FOOT_R * 2, d: FOOT_R * 2, r: FOOT_R };
+    haloUnder(art, plan, FOOT_Z, P, { grow: 1.25, drop: 1.6 });
+  }
+  trayBase(art, P);
+  return art;
+}
+
+// The share conveyor up to the hood's far walls: everything behind the print as it rides.
+function shareFeed(P) {
+  const art = new Art(FIG_LINES);
+  const [r0, r1] = SHARE.rail;
+  const beamZ = SHARE.railZ - 2;
+  column(art, P, SHARE.column, beamZ);
+  art.solid(k.slabOf(box(SHARE.beam[0], SHARE.beam[1], -r1, r1, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
+  // The inner beam is bolted to the chute's outer face, under the lip's overhang.
+  art.solid(k.slabOf(box(-22.6, CHUTE.outer.x, -r1, r1, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
+  const rail = (y0, y1, inner) =>
+    art.solid(k.slabOf(box(SHARE.x0, SHARE.x1, y0, y1, 0.4), SHARE.railZ, SHARE.railTop - SHARE.railZ, P, 2, 0.3), { tone: "mid", inner });
+  art.solid(k.slabOf(box(SHARE.x0 - 1.4, SHARE.x0, -r1, r1, 0.4), SHARE.railZ, SHARE.hood.top - SHARE.railZ, P, 2, 0.3), { tone: "mid" });
+  rail(-r1, -r0);
+  const wallH = SHARE.hood.top - SHARE.railTop;
+  art.solid(k.slabOf(box(SHARE.x0, SHARE.hood.x1, -r1, -r0, 0.3), SHARE.railTop, wallH, P, 2), { tone: "mid" });
+  art.solid(k.slabOf(box(SHARE.hood.x1 - 0.8, SHARE.hood.x1 + 0.6, -r1 - 0.4, -r0 + 0.4, 0.3), SHARE.railTop, wallH, P, 2, 0.3), { tone: "mid" });
+  const rollers = [];
+  for (let x = SHARE.x1 - 3; x - ROLLER_R > SHARE.x0 + 0.5; x -= 6) rollers.push(x);
+  for (const x of [...rollers].reverse()) {
+    const F = L.frameAlong([x, -r0, FEED_TOP - ROLLER_R], [0, 1, 0]);
+    art.solid(L.disc(0, 2 * r0, ROLLER_R, F, P), { tone: "mid" });
+  }
+  rail(r0, r1, (a) => a.dots(rollers.map((x) => k.iso([x, r1, FEED_TOP - ROLLER_R], P)), 0.36, "lo"));
+  return art;
+}
+
+// The hood's near wall and roof, painted over the print while it waits inside.
+function hoodFront(P) {
+  const art = new Art(FIG_LINES);
+  const [r0, r1] = SHARE.rail;
+  const wallH = SHARE.hood.top - SHARE.railTop;
+  art.solid(k.slabOf(box(SHARE.x0, SHARE.hood.x1, r0, r1, 0.3), SHARE.railTop, wallH, P, 2), {
+    tone: "mid",
+    inner: (a) => a.stroke(k.sideSeam(box(SHARE.x0, SHARE.hood.x1, r0, r1, 0.3), SHARE.railTop + 1.6, P, 2), "faint"),
+  });
+  art.solid(k.slabOf(box(SHARE.hood.x1 - 0.8, SHARE.hood.x1 + 0.6, r0 - 0.4, r1 + 0.4, 0.3), SHARE.railTop, wallH, P, 2, 0.3), { tone: "mid" });
+  const top = SHARE.hood.top + SHARE.hood.roof;
+  art.solid(k.slabOf(ROOF, SHARE.hood.top, SHARE.hood.roof, P, 3, 0.3), {
+    tone: "mid",
+    inner: (a) => {
+      for (const x of [-72, -66, -60]) a.stroke(k.planOutline(box(x - 0.6, x + 0.6, -12, 12, 0.6), top, P, 2), "faint");
+    },
+  });
+  for (const [x, y] of byDepth(P)(k.corners(ROOF, 1.6))) screw(art, x, y, top, P);
+  return art;
+}
+
+function pasteFeed(P) {
+  const art = new Art(FIG_LINES);
+  const beamZ = PASTE.z - 2;
+  column(art, P, PASTE.column, beamZ);
+  art.solid(k.slabOf(box(-15, 15, PASTE.beam[0], PASTE.beam[1], 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
+  art.solid(k.slabOf(box(-12, 12, -28.6, CHUTE.outer.y, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
+  const face = PASTE.plan.x + PASTE.plan.w;
+  const ticks = k.sideTicks(-80, -30, 2, 5, face, FEED_TOP, [0.9, 1.7], P, "y");
+  art.solid(k.slabOf(PASTE.plan, PASTE.z, FEED_TOP - PASTE.z, P, 3, 0.4), {
+    tone: "mid",
+    inner: (a) => {
+      for (const x of [-8, 8]) a.stroke(k.planOutline(box(x - 0.6, x + 0.6, -79.4, -29, 0.6), FEED_TOP, P, 2), "faint");
+      a.stroke(ticks.minor, "lo", 0.35);
+      a.stroke(ticks.major, "mid", 0.4);
+    },
+  });
+  for (const [x, y] of byDepth(P)([[-13.4, -27.6], [13.4, -27.6]])) screw(art, x, y, FEED_TOP, P);
+  art.solid(k.slabOf(PASTE.stop, FEED_TOP, PASTE.stopH, P, 2, 0.4), { tone: "mid" });
+  for (const x of [-11, 11]) screw(art, x, PASTE.stop.y + PASTE.stop.d / 2, FEED_TOP + PASTE.stopH, P);
+  return art;
+}
+
+// The pusher at home against the end stop: a bar riding the table's slots, with a knurled knob.
+function pasteHand(P) {
+  const art = new Art(FIG_LINES);
+  const z = FEED_TOP + PASTE.pusherH;
+  art.solid(k.slabOf(PASTE.pusher, FEED_TOP, PASTE.pusherH, P, 3, 0.4), { tone: "mid" });
+  const [cx, cy] = KNOB_AT;
+  const { r, h } = PASTE.knob;
+  art.solid(k.cylinder(cx, cy, r + 0.6, z, 0.8, P, 32, 0.3), { tone: "mid" });
+  art.solid(k.cylinder(cx, cy, r, z + 0.8, h - 0.8, P, 36, 0.4), {
+    tone: "mid",
+    inner: (a) => {
+      a.stroke(k.knurl(cx, cy, r, z + 0.8, z + h, 28, P, 0.5), "lo", 0.35);
+      a.stroke(k.ring(cx, cy, r - 0.9, z + h, P, 28), "faint");
+    },
+  });
+  return art;
+}
+
+function tutorialChute(P) {
+  const art = new Art(FIG_LINES);
+  chuteBack(art, P);
+  return art;
+}
+
+// World moves the onboarding choreography uses, from the print's rest in the tray.
+const TUTORIAL = {
+  rise: FEED_TOP - REST_Z,
+  shareStart: SHARE.start,
+  pasteStart: PASTE.start,
+  pusherGap: PASTE.gap,
+  pusherStroke: PASTE.stroke,
+};
 
 // ---------------------------------------------------------------------------------------------
 // The mark: one print, terracotta face up, resting in a shallow tray. Anatomy's 40-part rule
@@ -464,6 +669,67 @@ const front = trayFront();
 for (const [name, art] of [["fig_tray_back", back], ["fig_tray_print", print], ["fig_tray_front", front]]) {
   write(join(RES, "drawable", `${name}.xml`), vectorXml([{ art, paint: attrPaint }], { width: FIG_W, height: FIG_H, viewport: [FIG_W, FIG_H] }));
 }
+
+// Painted in this order; FigureView moves `hand` and `print` and dims the two feeds.
+const tutorialLayers = [
+  ["base", tutorialBase(TP)],
+  ["share", shareFeed(TP)],
+  ["paste", pasteFeed(TP)],
+  ["hand", pasteHand(TP)],
+  ["chute", tutorialChute(TP)],
+  ["print", trayPrint(TP)],
+  ["front", trayFront(TP)],
+  ["hood", hoodFront(TP)],
+];
+for (const [name, art] of tutorialLayers) {
+  write(join(RES, "drawable", `fig_tutorial_${name}.xml`), vectorXml([{ art, paint: attrPaint }], { width: TUT_W, height: TUT_H, viewport: [TUT_W, TUT_H] }));
+}
+
+// The choreography lives in Java (ui/TutorialFigure.java); it reads the viewport and the world
+// moves from here, so the drawing and the motion cannot drift apart.
+const fixed = (value) => {
+  const text = (Math.round(value * 10000) / 10000).toString();
+  return `${text === "-0" ? "0" : text}${text.includes(".") ? "" : ".0"}f`;
+};
+const vector = (axis) => `{${k.axisVector(TP, axis).map(fixed).join(", ")}}`;
+const [dropX, dropY] = START_OFFSET.map((value) => -value);
+write(
+  join(ROOT, "app/src/main/java/org/still/saver/ui/FigureGeometry.java"),
+  [
+    `// SPDX-License-Identifier: GPL-3.0-or-later`,
+    `// ${GENERATED}`,
+    `package org.still.saver.ui;`,
+    ``,
+    `/** Sizes and moves of the generated figures, in their drawables' viewport units or world units. */`,
+    `public final class FigureGeometry {`,
+    `  private FigureGeometry() {}`,
+    ``,
+    `  /** drawable/fig_tray_*: viewport width. */`,
+    `  public static final float TRAY_WIDTH = ${fixed(FIG_W)};`,
+    ``,
+    `  /** The tray print's travel from inside the chute to its rest, in viewport units. */`,
+    `  public static final float TRAY_DROP_X = ${fixed(dropX)}, TRAY_DROP_Y = ${fixed(dropY)};`,
+    ``,
+    `  /** drawable/fig_tutorial_*: viewport width. */`,
+    `  public static final float TUTORIAL_WIDTH = ${fixed(TUT_W)};`,
+    ``,
+    `  /** Screen offset of one world unit along x, y and z in the tutorial, in viewport units. */`,
+    `  public static final float[] TUTORIAL_X = ${vector([1, 0, 0])},`,
+    `      TUTORIAL_Y = ${vector([0, 1, 0])},`,
+    `      TUTORIAL_Z = ${vector([0, 0, 1])};`,
+    ``,
+    `  /** Height of either feed above the print's rest on the stack. */`,
+    `  public static final float FEED_RISE = ${fixed(TUTORIAL.rise)};`,
+    ``,
+    `  /** Print centre x where it waits inside the hood, and y where it lies on the feed table. */`,
+    `  public static final float SHARE_START = ${fixed(TUTORIAL.shareStart)}, PASTE_START = ${fixed(TUTORIAL.pasteStart)};`,
+    ``,
+    `  /** Gap between the pusher at home and the print, and the pusher's full stroke, along y. */`,
+    `  public static final float PUSHER_GAP = ${fixed(TUTORIAL.pusherGap)}, PUSHER_STROKE = ${fixed(TUTORIAL.pusherStroke)};`,
+    `}`,
+    ``,
+  ].join("\n"),
+);
 
 const iconPaint = literalPaint(ICON_TONES);
 const bgPaint = literalPaint({ bg: ICON_BG });
@@ -582,6 +848,47 @@ for (const [name, tones] of Object.entries(THEMES)) {
     })
     .join("");
   write(join(OUT, `fig_tray-${name}.svg`), svgDoc(FIG_W * 3 + GAP * 2, FIG_H, defs + frames, tones.paper));
+}
+
+// Moments of the three onboarding steps: shared (the print leaving the hood, then riding the
+// rollers), pasted (laid on the table, then pushed to the lip) and saved (dropping, at rest).
+// A dimmed feed is washed toward the paper, as FigureView does with a colour filter: set aside
+// while the other feed plays, or behind once the print has landed. TutorialFigure uses the same
+// strengths; light linework on dark paper needs more wash to step back as far.
+const WASH = { light: { aside: 0.6, behind: 0.45 }, dark: { aside: 0.75, behind: 0.6 } };
+const TUTORIAL_FRAMES = [
+  { print: [SHARE.start + 12, 0, TUTORIAL.rise], dims: [null, "aside"] },
+  { print: [-34, 0, TUTORIAL.rise], dims: [null, "aside"] },
+  { print: [0, 0, TUTORIAL.rise * 0.55], dims: [null, "aside"] },
+  { print: [0, PASTE.start, TUTORIAL.rise], hand: PASTE.gap, dims: ["aside", null] },
+  { print: [0, -4, TUTORIAL.rise], hand: PASTE.stroke, dims: ["aside", null] },
+  { print: [0, 0, 0], dims: ["behind", "behind"] },
+];
+for (const [name, tones] of Object.entries(THEMES)) {
+  gradientId = 0;
+  const layer = Object.fromEntries(tutorialLayers.map(([key, art]) => [key, svgOps(art, tones)]));
+  const filters = Object.entries(WASH[name])
+    .map(([role, dim]) => `<filter id="${role}"><feFlood flood-color="${tones.paper}" flood-opacity="${dim}"/><feComposite in2="SourceGraphic" operator="atop"/></filter>`)
+    .join("");
+  const defs = `<defs>${filters}${Object.entries(layer).map(([key, svg]) => `<g id="t-${key}">${svg}</g>`).join("")}</defs>`;
+  const use = (key, { dim = null, move = [0, 0] } = {}) =>
+    `<use href="#t-${key}"${move[0] || move[1] ? ` transform="translate(${num(move[0])} ${num(move[1])})"` : ""}${dim ? ` filter="url(#${dim})"` : ""}/>`;
+  const frames = TUTORIAL_FRAMES.map(({ print: at, hand = 0, dims: [share, paste] }, index) => {
+    const [x, y] = [(index % 3) * (TUT_W + GAP), Math.floor(index / 3) * (TUT_H + GAP)];
+    return [
+      `<g transform="translate(${x} ${y})">`,
+      use("base"),
+      use("share", { dim: share }),
+      use("paste", { dim: paste }),
+      use("hand", { dim: paste, move: k.axisVector(TP, [0, hand, 0]) }),
+      use("chute"),
+      use("print", { move: k.axisVector(TP, at) }),
+      use("front"),
+      use("hood", { dim: share }),
+      `</g>`,
+    ].join("");
+  }).join("");
+  write(join(OUT, `fig_tutorial-${name}.svg`), svgDoc(TUT_W * 3 + GAP * 2, TUT_H * 2 + GAP, defs + frames, tones.paper));
 }
 
 function iconSheet() {

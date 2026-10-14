@@ -2,6 +2,7 @@
 package org.still.saver;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -152,6 +153,11 @@ public final class SettingsActivity extends Activity {
             updating ? null : this::confirmUpdate));
 
     section("About");
+    list.addView(
+        ui.valueRow(
+            "Show tutorial",
+            "Sharing to Still and pasting links",
+            () -> startActivity(new Intent(this, OnboardingActivity.class))));
     list.addView(ui.valueRow("Still " + version(), "Open source · GPL-3.0-or-later", null));
     list.addView(ui.valueRow("Open-source licenses", null, this::licenses));
     TextView note =

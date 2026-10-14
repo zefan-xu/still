@@ -38,6 +38,7 @@ Raise a floor when a change lifts the measured value well above it, so the floor
 
 | Function | Automated coverage | Boundary |
 | --- | --- | --- |
+| First-run tutorial | Opens on a first launcher start with an empty Library, Skip keeps it closed on the next launch, Settings replays it through every step | Swipe, rotation and the Paste a link handoff are checked by hand |
 | Link input | Empty input stays usable; invalid clipboard and incoming Android share recover with no download | Valid parsing uses JVM fixtures and live checks; incoming share uses an already open activity |
 | Quality and saving | Native picker selection, Save, Save all and duplicate suppression | Offline UI injects a resolved post and holds its queue; the picker opens through its native click handler; live tests resolve and transfer |
 | Settings | Quality, auto-save preference, Wi-Fi, concurrency, theme, endpoint/folder validation, recreation persistence | Real Wi-Fi transitions and automatic-save transfer timing remain gaps |
@@ -51,7 +52,7 @@ Raise a floor when a change lifts the measured value well above it, so the floor
 | Public platforms | Videos on every platform; X photo+video and GIF posts; Instagram, Threads and TikTok photo carousels; Bluesky photo; Pinterest image pin; Facebook reel/video/embed/legacy route | Specific samples; public services and availability can change |
 | Public unavailability | An unavailable Facebook video; deleted and text-only Threads posts | Expected messages asserted; unexpected network/auth/parse errors fail |
 
-Default device runs select **23 offline checks**: 8 state regressions, 8 UI workflows, 6 media workflows and 1 native-extractor check. Highest-quality live runs select **24 checks**, including availability and smoke checks; 8 of them download every item of photo, carousel and GIF posts and require Android to decode each file. Smallest-quality runs select **11 real transfer/decode checks**. A successful live transfer requires nonempty bytes, duration/dimensions and an Android-decoded frame. Enabled live failures are failures, never silent skips. Some probes use alternate public samples; JSON records all attempts.
+Default device runs select **24 offline checks**: 8 state regressions, 9 UI workflows (one for the first-run tutorial), 6 media workflows and 1 native-extractor check. Highest-quality live runs select **24 checks**, including availability and smoke checks; 8 of them download every item of photo, carousel and GIF posts and require Android to decode each file. Smallest-quality runs select **11 real transfer/decode checks**. A successful live transfer requires nonempty bytes, duration/dimensions and an Android-decoded frame. Enabled live failures are failures, never silent skips. Some probes use alternate public samples; JSON records all attempts.
 
 ## Reports and isolation
 

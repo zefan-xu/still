@@ -54,6 +54,7 @@ final class TestFixtures implements AutoCloseable {
               .putString("folder", folder)
               .putInt("parallel", parallel)
               .putBoolean("auto", false)
+              .putBoolean(OnboardingActivity.SEEN, true)
               .commit());
       app.getContentResolver().call(FixtureControlProvider.BASE, "reset", null, null);
       app.getContentResolver().call(FixtureControlProvider.BASE, "grant", null, null);
@@ -284,6 +285,11 @@ final class TestFixtures implements AutoCloseable {
   }
 
   private void restorePreferences() {
+    restorePreferences(prefs, original);
+  }
+
+  @SuppressWarnings("unchecked")
+  static void restorePreferences(SharedPreferences prefs, Map<String, ?> original) {
     SharedPreferences.Editor edit = prefs.edit().clear();
     for (Map.Entry<String, ?> item : original.entrySet()) {
       Object v = item.getValue();

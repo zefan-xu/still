@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.still.saver.core.Platforms;
+import org.still.saver.ui.FigureGeometry;
 import org.still.saver.ui.FigureView;
 import org.still.saver.ui.Format;
 import org.still.saver.ui.LibraryModel;
@@ -155,14 +156,14 @@ final class LibraryAdapter extends BaseAdapter {
     }
     box.setPadding(ui.dp(24), ui.dp(16), ui.dp(24), ui.dp(24));
     FigureView figure =
-        new FigureView(
+        FigureView.drop(
             ui.activity,
             ui.activity.getTheme().getDrawable(R.drawable.fig_tray_back),
             ui.activity.getTheme().getDrawable(R.drawable.fig_tray_print),
             ui.activity.getTheme().getDrawable(R.drawable.fig_tray_front),
-            240,
-            0,
-            57.03f);
+            FigureGeometry.TRAY_WIDTH,
+            FigureGeometry.TRAY_DROP_X,
+            FigureGeometry.TRAY_DROP_Y);
     LinearLayout.LayoutParams figureParams = new LinearLayout.LayoutParams(ui.dp(220), ui.dp(214));
     figureParams.gravity = Gravity.CENTER_HORIZONTAL;
     box.addView(figure, 0, figureParams);
