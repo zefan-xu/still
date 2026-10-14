@@ -171,13 +171,265 @@ public final class MediaWorkflowTest {
     }
   }
 
+  @Test
+  public void viewerZoomsAndSwipesBetweenSavedImagesAndVideos() throws Exception {
+    try (TestFixtures f = new TestFixtures()) {
+      Uri first = f.image("First photo");
+      Uri second = f.video("Second video");
+      Uri third = f.image("Third photo");
+      DownloadStore.Entry newest = DownloadStore.list(f.app).get(0);
+      assertEquals(third, newest.uri);
+      try (ActivityScenario<PlayerActivity> screen =
+          ActivityScenario.launch(
+              new Intent(f.app, PlayerActivity.class)
+                  .setDataAndType(newest.uri, newest.mime)
+                  .putExtra("title", newest.title)
+                  .putExtra("entry", newest.key))) {
+        screen.onActivity(
+            a -> {
+              assertEquals(3, a.pageCount());
+              assertEquals(0, a.currentIndex());
+              assertEquals(third, a.currentUri());
+              assertEquals(1f, a.currentScale(), 0.01f);
+            });
+        // Pinch-to-zoom on the image, pan while zoomed, and double-tap to reset.
+        screen.onActivity(MediaWorkflowTest::pinchOut);
+        screen.onActivity(a -> assertTrue("Pinch should zoom in", a.currentScale() > 1.5f));
+        screen.onActivity(MediaWorkflowTest::dragHorizontally);
+        screen.onActivity(
+            a -> {
+              assertEquals("Pan while zoomed should stay on current page", 0, a.currentIndex());
+              assertNotEquals("Pan while zoomed should translate image", 0f, a.currentPanX(), 1f);
+            });
+        screen.onActivity(MediaWorkflowTest::doubleTapCenter);
+        screen.onActivity(
+            a -> {
+              assertEquals(1f, a.currentScale(), 0.01f);
+              assertEquals(0f, a.currentPanX(), 0.5f);
+            });
+        // Double-tap zooms in, and a second double-tap resets back to 1x.
+        screen.onActivity(MediaWorkflowTest::doubleTapCenter);
+        screen.onActivity(a -> assertEquals(2.5f, a.currentScale(), 0.05f));
+        screen.onActivity(MediaWorkflowTest::doubleTapCenter);
+        screen.onActivity(a -> assertEquals(1f, a.currentScale(), 0.01f));
+
+        // Swipe left from the newest image to the video, verify playback and video zoom, then swipe
+        // on to the oldest image and back.
+        screen.onActivity(a -> swipePage(a, true));
+        TestFixtures.await("swiped video playback", () -> playing(screen));
+        screen.onActivity(
+            a -> {
+              assertEquals(1, a.currentIndex());
+              assertEquals(second, a.currentUri());
+            });
+        screen.onActivity(MediaWorkflowTest::doubleTapCenter);
+        screen.onActivity(a -> assertEquals(2.5f, a.currentScale(), 0.05f));
+        screen.onActivity(MediaWorkflowTest::doubleTapCenter);
+        screen.onActivity(a -> assertEquals(1f, a.currentScale(), 0.01f));
+
+        screen.onActivity(a -> swipePage(a, true));
+        screen.onActivity(
+            a -> {
+              assertEquals(2, a.currentIndex());
+              assertEquals(first, a.currentUri());
+              assertNull(TestFixtures.field(a, "video"));
+            });
+        screen.onActivity(a -> swipePage(a, false));
+        TestFixtures.await("resumed video after swiping back", () -> playing(screen));
+        screen.onActivity(
+            a -> {
+              assertEquals(1, a.currentIndex());
+              assertEquals(second, a.currentUri());
+            });
+      }
+    }
+  }
+
+  private static void pinchOut(PlayerActivity activity) {
+    android.view.View stage = activity.stageView();
+    float cx = stage.getWidth() / 2f, cy = stage.getHeight() / 2f;
+    long downTime = android.os.SystemClock.uptimeMillis();
+    android.view.MotionEvent.PointerProperties[] props =
+        new android.view.MotionEvent.PointerProperties[] {
+          new android.view.MotionEvent.PointerProperties(),
+          new android.view.MotionEvent.PointerProperties()
+        };
+    props[0].id = 0;
+    props[0].toolType = android.view.MotionEvent.TOOL_TYPE_FINGER;
+    props[1].id = 1;
+    props[1].toolType = android.view.MotionEvent.TOOL_TYPE_FINGER;
+    android.view.MotionEvent.PointerCoords[] coords =
+        new android.view.MotionEvent.PointerCoords[] {
+          new android.view.MotionEvent.PointerCoords(),
+          new android.view.MotionEvent.PointerCoords()
+        };
+    coords[0].x = cx - 100f;
+    coords[0].y = cy;
+    coords[0].pressure = 1f;
+    coords[1].x = cx + 100f;
+    coords[1].y = cy;
+    coords[1].pressure = 1f;
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            downTime,
+            downTime,
+            android.view.MotionEvent.ACTION_DOWN,
+            1,
+            props,
+            coords,
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            android.view.InputDevice.SOURCE_TOUCHSCREEN,
+            0));
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            downTime,
+            downTime + 10,
+            android.view.MotionEvent.ACTION_POINTER_DOWN
+                | (1 << android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            2,
+            props,
+            coords,
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            android.view.InputDevice.SOURCE_TOUCHSCREEN,
+            0));
+    for (int i = 1; i <= 8; i++) {
+      coords[0].x = cx - 100f - i * 25f;
+      coords[1].x = cx + 100f + i * 25f;
+      dispatch(
+          stage,
+          android.view.MotionEvent.obtain(
+              downTime,
+              downTime + 10 + i * 16L,
+              android.view.MotionEvent.ACTION_MOVE,
+              2,
+              props,
+              coords,
+              0,
+              0,
+              1f,
+              1f,
+              0,
+              0,
+              android.view.InputDevice.SOURCE_TOUCHSCREEN,
+              0));
+    }
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            downTime,
+            downTime + 150,
+            android.view.MotionEvent.ACTION_POINTER_UP
+                | (1 << android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            2,
+            props,
+            coords,
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            android.view.InputDevice.SOURCE_TOUCHSCREEN,
+            0));
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            downTime,
+            downTime + 160,
+            android.view.MotionEvent.ACTION_UP,
+            1,
+            props,
+            coords,
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            android.view.InputDevice.SOURCE_TOUCHSCREEN,
+            0));
+  }
+
+  private static void doubleTapCenter(PlayerActivity activity) {
+    android.view.View stage = activity.stageView();
+    float cx = stage.getWidth() / 2f, cy = stage.getHeight() / 2f;
+    long t = android.os.SystemClock.uptimeMillis();
+    dispatch(stage, android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, cx, cy, 0));
+    dispatch(stage, android.view.MotionEvent.obtain(t, t + 10, android.view.MotionEvent.ACTION_UP, cx, cy, 0));
+    dispatch(stage, android.view.MotionEvent.obtain(t + 60, t + 60, android.view.MotionEvent.ACTION_DOWN, cx, cy, 0));
+    dispatch(stage, android.view.MotionEvent.obtain(t + 60, t + 70, android.view.MotionEvent.ACTION_UP, cx, cy, 0));
+  }
+
+  private static void dragHorizontally(PlayerActivity activity) {
+    android.view.View stage = activity.stageView();
+    float cx = stage.getWidth() / 2f, cy = stage.getHeight() / 2f;
+    long t = android.os.SystemClock.uptimeMillis();
+    dispatch(stage, android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, cx, cy, 0));
+    for (int i = 1; i <= 5; i++) {
+      dispatch(
+          stage,
+          android.view.MotionEvent.obtain(
+              t, t + i * 16L, android.view.MotionEvent.ACTION_MOVE, cx - i * 30f, cy, 0));
+    }
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            t, t + 100, android.view.MotionEvent.ACTION_UP, cx - 150f, cy, 0));
+  }
+
+  private static void swipePage(PlayerActivity activity, boolean toNext) {
+    android.view.View stage = activity.stageView();
+    float w = stage.getWidth(), cy = stage.getHeight() / 2f;
+    float startX = toNext ? w * 0.85f : w * 0.15f;
+    float endX = toNext ? w * 0.15f : w * 0.85f;
+    long t = android.os.SystemClock.uptimeMillis();
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, startX, cy, 0));
+    for (int i = 1; i <= 8; i++) {
+      float x = startX + (endX - startX) * (i / 8f);
+      dispatch(
+          stage,
+          android.view.MotionEvent.obtain(
+              t, t + i * 16L, android.view.MotionEvent.ACTION_MOVE, x, cy, 0));
+    }
+    dispatch(
+        stage,
+        android.view.MotionEvent.obtain(
+            t, t + 140, android.view.MotionEvent.ACTION_UP, endX, cy, 0));
+  }
+
+  private static void dispatch(android.view.View view, android.view.MotionEvent event) {
+    try {
+      view.dispatchTouchEvent(event);
+    } finally {
+      event.recycle();
+    }
+  }
+
   private static Uri document(String id) {
     return DocumentsContract.buildDocumentUriUsingTree(FixtureDocumentsProvider.TREE, id);
   }
 
   private static boolean playing(ActivityScenario<PlayerActivity> screen) {
     AtomicBoolean playing = new AtomicBoolean();
-    screen.onActivity(a -> playing.set(((VideoView) TestFixtures.field(a, "video")).isPlaying()));
+    screen.onActivity(
+        a -> {
+          VideoView video = (VideoView) TestFixtures.field(a, "video");
+          playing.set(video != null && video.isPlaying());
+        });
     return playing.get();
   }
 

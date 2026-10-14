@@ -29,14 +29,14 @@ python3 scripts/test.py live --serial emulator-5554 --skip-build --quality small
 | Download state | Progress/completion persistence, stale callbacks, interrupted cookie-output recovery; actual Retry/Cancel buttons | Retry uses a synthetic failure and held queue; actual failed-transfer retry and FIFO/concurrency remain gaps |
 | Library | Case-insensitive search, Keep, remove history retains bytes, delete affects only target, Open routing | Uses real MediaStore files |
 | Sharing | Actual Share button checks chooser URI, MIME, ClipData and read flag | External receiving app and cross-UID reads remain untested |
-| Player | Real video playing/pause/resume; delayed animation decode while paused; Library Open routing | Delayed video preparation while paused remains a gap |
+| Player | Real video playing/pause/resume; delayed animation decode while paused; pinch/double-tap zoom, pan while zoomed, and horizontal swiping between saved images and videos; Library Open routing | Delayed video preparation while paused remains a gap |
 | GIF export | Actual dialog/export, Android decode, dimensions, looping, 64 frames/8 seconds, MIME/publication and original-video retention | Synthetic silent video; device codecs may differ |
 | GIF cancel/error | Gated source opening, actual Library Cancel action, invalid video, no new output/library/cache residue | Notification permission is not explicitly denied in this suite |
 | Native extractor | Bundled Python/yt-dlp executes `--version` on Android | Makes no platform request |
 | Public platforms | Videos on every platform; X photo+video and GIF posts; Instagram, Threads and TikTok photo carousels; Bluesky photo; Pinterest image pin; Facebook reel/video/embed/legacy route | Specific samples; public services and availability can change |
 | Public unavailability | An unavailable Facebook video; deleted and text-only Threads posts | Expected messages asserted; unexpected network/auth/parse errors fail |
 
-Default device runs select **22 offline checks**: 8 state regressions, 8 UI workflows, 5 media workflows and 1 native-extractor check. Highest-quality live runs select **24 checks**, including availability and smoke checks; 8 of them download every item of photo, carousel and GIF posts and require Android to decode each file. Smallest-quality runs select **11 real transfer/decode checks**. A successful live transfer requires nonempty bytes, duration/dimensions and an Android-decoded frame. Enabled live failures are failures, never silent skips. Some probes use alternate public samples; JSON records all attempts.
+Default device runs select **23 offline checks**: 8 state regressions, 8 UI workflows, 6 media workflows and 1 native-extractor check. Highest-quality live runs select **24 checks**, including availability and smoke checks; 8 of them download every item of photo, carousel and GIF posts and require Android to decode each file. Smallest-quality runs select **11 real transfer/decode checks**. A successful live transfer requires nonempty bytes, duration/dimensions and an Android-decoded frame. Enabled live failures are failures, never silent skips. Some probes use alternate public samples; JSON records all attempts.
 
 ## Reports and isolation
 

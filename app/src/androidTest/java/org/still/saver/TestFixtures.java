@@ -94,6 +94,35 @@ final class TestFixtures implements AutoCloseable {
     return uri;
   }
 
+  Uri image(String title) throws Exception {
+    ContentValues values = new ContentValues();
+    values.put(MediaStore.MediaColumns.DISPLAY_NAME, title + ".png");
+    values.put(MediaStore.MediaColumns.MIME_TYPE, "image/png");
+    if (Build.VERSION.SDK_INT >= 29)
+      values.put(
+          MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + folder);
+    Uri uri =
+        app.getContentResolver()
+            .insert(
+                Build.VERSION.SDK_INT >= 29
+                    ? MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                    : MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                values);
+    assertNotNull(uri);
+    files.add(uri);
+    android.graphics.Bitmap bitmap =
+        android.graphics.Bitmap.createBitmap(320, 240, android.graphics.Bitmap.Config.ARGB_8888);
+    bitmap.eraseColor(0xff2c5e4f);
+    try (OutputStream output = app.getContentResolver().openOutputStream(uri)) {
+      assertNotNull(output);
+      assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output));
+    } finally {
+      bitmap.recycle();
+    }
+    DownloadStore.recordLocal(app, uri, title, title + ".png", "image/png");
+    return uri;
+  }
+
   byte[] bytes(Uri uri) throws Exception {
     try (InputStream input = app.getContentResolver().openInputStream(uri);
         java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {

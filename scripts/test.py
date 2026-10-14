@@ -232,7 +232,7 @@ class Run:
                 self.device()
                 if self.args.mode in ("device", "all"):
                     self.instrumentation("device-offline", self.args.classes or OFFLINE,
-                                         None if self.args.classes else 22)
+                                         None if self.args.classes else 23)
                 if self.args.mode in ("live", "all"):
                     qualities = ["highest", "smallest"] if self.args.quality == "both" else [self.args.quality]
                     for quality in qualities:
