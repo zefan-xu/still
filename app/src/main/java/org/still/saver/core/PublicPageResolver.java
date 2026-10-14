@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.still.saver.DeviceVideoSupport;
 import org.still.saver.ExtractorRuntime;
 
 /** Resolves supported public posts. Call on a background thread; extraction may take a minute. */
@@ -110,7 +111,8 @@ public final class PublicPageResolver {
               return response.getOut();
             });
     try {
-      return ExtractorJsonParser.parse(extraction.get(90, TimeUnit.SECONDS), sourceUrl);
+      return ExtractorJsonParser.parse(
+          extraction.get(90, TimeUnit.SECONDS), sourceUrl, DeviceVideoSupport.get());
     } catch (TimeoutException e) {
       extraction.cancel(true);
       YoutubeDL.INSTANCE.destroyProcessById(processId);
@@ -135,6 +137,12 @@ public final class PublicPageResolver {
             : cause.getMessage().toLowerCase(Locale.ROOT);
     if (message.contains("429") || message.contains("rate limit")) {
       return new IOException("This platform is rate limited. Wait a moment and try again.", cause);
+    }
+    if (message.contains("not a bot")) {
+      return new IOException(
+          "YouTube is asking this network to prove it is not a bot. Try again later or on"
+              + " another connection.",
+          cause);
     }
     if (message.contains("login")
         || message.contains("log in")

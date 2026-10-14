@@ -56,6 +56,26 @@ public class PublicLinkParserTest {
   }
 
   @Test
+  public void canonicalizesYouTubeVideoAndShortsLinks() throws Exception {
+    String watch = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    String[][] cases = {
+      {watch, watch},
+      {"https://youtube.com/watch?v=dQw4w9WgXcQ", watch},
+      {"https://m.youtube.com/watch/?feature=share&v=dQw4w9WgXcQ&t=42s", watch},
+      {"https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123&index=2", watch},
+      {"https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=abc", watch},
+      {"https://youtu.be/dQw4w9WgXcQ?si=Abc_123&t=10", watch},
+      {"https://www.youtube.com/live/dQw4w9WgXcQ?si=abc", watch},
+      {"https://www.youtube.com/embed/dQw4w9WgXcQ", watch},
+      {"https://youtube.com/shorts/dQw4w9WgXcQ?feature=share",
+        "https://www.youtube.com/shorts/dQw4w9WgXcQ"},
+      {"https://www.youtube.com/shorts/A-b_C1d2E3f/", "https://www.youtube.com/shorts/A-b_C1d2E3f"},
+    };
+    for (String[] c : cases)
+      assertEquals(c[0], c[1], PublicLinkParser.parse("Watch this " + c[0] + " !"));
+  }
+
+  @Test
   public void rejectsUnlistedHostsCredentialsAndNonPostPages() {
     String[] urls = {
       "http://instagram.com/reel/Abc",
@@ -64,6 +84,17 @@ public class PublicLinkParserTest {
       "https://user@www.tiktok.com/@a/video/123",
       "https://facebook.com:8443/watch/?v=123",
       "https://youtube.com/watch?v=123",
+      "https://www.youtube.com/watch?vv=dQw4w9WgXcQ",
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQx",
+      "https://www.youtube.com/watch",
+      "https://www.youtube.com/playlist?list=PL123",
+      "https://www.youtube.com/@someone",
+      "https://www.youtube.com/channel/UC1234567890",
+      "https://www.youtube.com/results?search_query=v=dQw4w9WgXcQ",
+      "https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ",
+      "https://youtu.be/",
+      "https://youtu.be/dQw4w9WgXc",
+      "http://youtu.be/dQw4w9WgXcQ",
       "https://bsky.app/profile/someone.bsky.social",
       "https://instagram.com/someone/",
       "https://pinterest.com/someone/board/",

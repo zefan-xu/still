@@ -35,7 +35,7 @@ public final class Platforms {
   /** A link that Still can read. */
   public static final class Match {
     public final Platform platform;
-    /** What the link points at: "post", "reel", "video", "photo post", "pin" or "link". */
+    /** What the link points at: "post", "reel", "video", "Short", "photo post", "pin" or "link". */
     public final String kind;
     /** The canonical link the resolvers receive. */
     public final String url;
@@ -103,10 +103,18 @@ public final class Platforms {
           "Photos, videos",
           Collections.singletonList("bsky.app"),
           "bsky.app/profile/…/post/…");
+  public static final Platform YOUTUBE =
+      new Platform(
+          "YouTube",
+          "Videos, Shorts (up to 4K)",
+          Arrays.asList("youtube.com", "youtu.be"),
+          "youtube.com/watch?v=…",
+          "/shorts/…",
+          "youtu.be/…");
 
   public static final List<Platform> ALL =
       Collections.unmodifiableList(
-          Arrays.asList(X, INSTAGRAM, TIKTOK, FACEBOOK, PINTEREST, THREADS, BLUESKY));
+          Arrays.asList(X, INSTAGRAM, TIKTOK, FACEBOOK, PINTEREST, THREADS, BLUESKY, YOUTUBE));
 
   /** What Still cannot read, in the words the app shows. */
   public static final List<String> LIMITS =
@@ -119,7 +127,7 @@ public final class Platforms {
 
   private Platforms() {}
 
-  /** "X, Instagram, … Threads and Bluesky", with {@code last} before the final name. */
+  /** "X, Instagram, … Bluesky and YouTube", with {@code last} before the final name. */
   public static String names(String last) {
     StringBuilder out = new StringBuilder();
     for (int i = 0; i < ALL.size(); i++) {
@@ -160,6 +168,7 @@ public final class Platforms {
       return "post";
     }
     if (platform == PINTEREST) return host.endsWith("pin.it") ? "link" : "pin";
+    if (platform == YOUTUBE) return path.startsWith("/shorts/") ? "Short" : "video";
     return "post";
   }
 }

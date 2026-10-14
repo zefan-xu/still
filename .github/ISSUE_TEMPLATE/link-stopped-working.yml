@@ -6,7 +6,7 @@ body:
     id: platform
     attributes:
       label: Platform
-      options: [X / Twitter, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky]
+      options: [X / Twitter, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube]
     validations:
       required: true
   - type: input

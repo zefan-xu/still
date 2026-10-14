@@ -10,9 +10,11 @@ public class PlatformsTest {
   @Test
   public void listsEveryPlatformInDisplayOrder() {
     assertEquals(
-        "X, Instagram, TikTok, Facebook, Pinterest, Threads and Bluesky", Platforms.names("and"));
+        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky and YouTube",
+        Platforms.names("and"));
     assertEquals(
-        "X, Instagram, TikTok, Facebook, Pinterest, Threads or Bluesky", Platforms.names("or"));
+        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky or YouTube",
+        Platforms.names("or"));
     for (Platforms.Platform platform : Platforms.ALL) {
       assertFalse(platform.name, platform.kinds.isEmpty());
       assertFalse(platform.name, platform.examples.isEmpty());
@@ -54,6 +56,9 @@ public class PlatformsTest {
       {"https://pin.it/AbC123", Platforms.PINTEREST, "link"},
       {"https://www.threads.com/@someone/post/AbC123", Platforms.THREADS, "post"},
       {"https://bsky.app/profile/someone.bsky.social/post/3abc123", Platforms.BLUESKY, "post"},
+      {"https://www.youtube.com/watch?v=dQw4w9WgXcQ", Platforms.YOUTUBE, "video"},
+      {"https://youtu.be/dQw4w9WgXcQ?si=abc", Platforms.YOUTUBE, "video"},
+      {"https://youtube.com/shorts/dQw4w9WgXcQ?feature=share", Platforms.YOUTUBE, "Short"},
     };
     for (Object[] c : cases) {
       Platforms.Match match = Platforms.detect("Look at this: " + c[0] + " !");
@@ -65,6 +70,8 @@ public class PlatformsTest {
         "Instagram post", Platforms.detect("https://instagram.com/p/AbC-123/").label());
     assertEquals(
         "https://x.com/i/status/123", Platforms.detect("https://x.com/a/status/123").url);
+    assertEquals(
+        "YouTube Short", Platforms.detect("https://m.youtube.com/shorts/dQw4w9WgXcQ").label());
   }
 
   @Test
@@ -75,6 +82,7 @@ public class PlatformsTest {
       "   ",
       "https://example.com/not-a-supported-post",
       "https://youtube.com/watch?v=123",
+      "https://www.youtube.com/@someone",
       "https://instagram.com/someone/",
       "http://instagram.com/reel/Abc",
       "javascript:alert(1)",

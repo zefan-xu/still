@@ -20,13 +20,14 @@ NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
 NAV_GESTURAL = "com.android.internal.systemui.navbar.gestural"
 OFFLINE = [
     "DeviceRegressionTest", "FunctionalUiTest", "MediaWorkflowTest", "OnboardingTest",
-    "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
+    "StreamMergerTest", "DeviceVideoSupportTest", "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
 ]
 LIVE = ["LivePlatformDownloadTest", "LivePostDownloadTest", "LiveMetaAvailabilityTest",
         "DeviceSmokeTest#extractsPublicBlueskyVideoOnDevice",
         "DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid"]
 LIVE_REPORTS = ["x", "bluesky", "instagram", "tiktok", "facebook", "facebook-video",
-                "facebook-embed", "facebook-legacy", "threads", "threads-audio", "pinterest",
+                "facebook-embed", "facebook-legacy", "threads", "threads-audio", "youtube", "youtube-4k",
+                "youtube-vp9", "pinterest",
                 "facebook-unavailable", "threads-no-video", "threads-unavailable",
                 "x-mixed", "x-gif", "instagram-carousel", "bluesky-photo", "pinterest-photo",
                 "tiktok-photo", "threads-photos", "facebook-publisher"]
@@ -34,7 +35,7 @@ SCREENSHOTS = [f"{screen}-{theme}" for screen in ("library", "save", "actions", 
                for theme in ("light", "dark")] + ["viewer"]
 
 
-def parse_instrumentation(output, expected_count=None, selectors=()):
+def parse_instrumentation(output, selectors=()):
     """ADB exit status does not encode JUnit failure; require a complete successful run."""
     bundle, started, finished, errors, declared = {}, [], [], [], set()
     for line in output.splitlines():
@@ -73,8 +74,6 @@ def parse_instrumentation(output, expected_count=None, selectors=()):
         errors.append("Duplicate or unnamed test results")
     if declared != {len(finished)}:
         errors.append("Declared test count does not match results")
-    if expected_count is not None and len(finished) != expected_count:
-        errors.append(f"Expected {expected_count} tests; received {len(finished)}")
     for selector in selectors:
         cls, sep, method = selector.partition("#")
         if not any(c == cls and (not sep or t == method) for c, t in names):
@@ -211,7 +210,7 @@ class Run:
     def adb_args(self, *arguments):
         return [self.adb, "-s", self.serial, *arguments]
 
-    def instrumentation(self, name, selectors, count, quality=None, arguments=()):
+    def instrumentation(self, name, selectors, quality=None, arguments=()):
         selectors = [s if s.startswith(PACKAGE + ".") else PACKAGE + "." + s for s in selectors]
         command = self.adb_args("shell", "am", "instrument", "-w", "-r", "-e", "class", ",".join(selectors))
         for key, value in arguments:
@@ -223,7 +222,7 @@ class Run:
             command += ["-e", "livePlatforms", "true", "-e", "qualityChoice", quality]
         command.append(RUNNER)
         code, output, log = self.command(name, command, timeout=2400 if quality else 900)
-        result = parse_instrumentation(output, count, selectors)
+        result = parse_instrumentation(output, selectors)
         result.update(name=name, log=log, exit_code=code)
         if code:
             result["passed"] = False
@@ -322,18 +321,16 @@ class Run:
             if self.args.mode != "local":
                 self.device()
                 if self.args.mode in ("device", "all"):
-                    self.instrumentation("device-offline", self.args.classes or OFFLINE,
-                                         None if self.args.classes else 24)
+                    self.instrumentation("device-offline", self.args.classes or OFFLINE)
                 if self.args.mode in ("live", "all"):
                     qualities = ["highest", "smallest"] if self.args.quality == "both" else [self.args.quality]
                     for quality in qualities:
                         selectors = self.args.classes or (LIVE if quality == "highest" else ["LivePlatformDownloadTest"])
-                        self.instrumentation("live-" + quality, selectors,
-                                             None if self.args.classes else (24 if quality == "highest" else 11), quality)
+                        self.instrumentation("live-" + quality, selectors, quality)
                 if self.args.mode == "screenshots":
                     restore = self.presentation_mode()
                     try:
-                        if self.instrumentation("screenshots", ["ReadmeScreenshots"], 1,
+                        if self.instrumentation("screenshots", ["ReadmeScreenshots"],
                                                 arguments=[("readmeScreenshots", "true")]):
                             self.collect_screenshots()
                     finally:

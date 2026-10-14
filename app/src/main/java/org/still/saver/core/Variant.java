@@ -15,6 +15,8 @@ public final class Variant {
   public final int height;
   public final Map<String, String> headers;
   public final String scopedCookies;
+  /** A separate audio track that must be merged with {@link #url}'s video; null for one file. */
+  public final String audioUrl;
 
   public Variant(String url, String label, String mimeType, long bitrate, int width, int height) {
     this(url, label, mimeType, bitrate, width, height, Collections.<String, String>emptyMap());
@@ -43,7 +45,23 @@ public final class Variant {
       int height,
       Map<String, String> headers,
       String scopedCookies) {
+    this(url, label, mimeType, bitrate, width, height, headers, scopedCookies, null);
+  }
+
+  Variant(
+      String url,
+      String label,
+      String mimeType,
+      long bitrate,
+      int width,
+      int height,
+      Map<String, String> headers,
+      String scopedCookies,
+      String audioUrl) {
+    if (audioUrl != null && LinkParser.safeHttpsUri(audioUrl) == null)
+      throw new IllegalArgumentException("The audio track must use HTTPS");
     this.url = url;
+    this.audioUrl = audioUrl;
     this.label = label;
     this.mimeType = mimeType;
     this.bitrate = Math.max(0, bitrate);

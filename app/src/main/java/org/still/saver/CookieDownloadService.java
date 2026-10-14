@@ -21,6 +21,8 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.os.storage.StorageManager;
 import android.provider.MediaStore;
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,21 +30,39 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.still.saver.core.ByteRanges;
 import org.still.saver.core.ExtractorCookies;
 
-/** HTTPS transfers whose anonymous extractor cookies must be scoped on every redirect. */
+/**
+ * HTTPS transfers whose anonymous extractor cookies must be scoped on every redirect, and videos
+ * whose separate audio track is downloaded alongside and merged before publishing.
+ */
 public final class CookieDownloadService extends Service {
   private static final String CHANNEL = "scoped_downloads";
   private static final int NOTIFICATION_ID = 4203;
+
+  /** A one-byte range: its Content-Range reports the length of a file downloaded in ranges. */
+  private static final String FIRST_BYTE = "bytes=0-0";
+
+  private static final int RANGE_RETRIES = 3;
+
+  /** Doubles after each failed attempt at the same range. */
+  private static final long RANGE_RETRY_MS = 1000;
+
+  private static final String NO_ROOM_TO_MERGE =
+      "Not enough free space to combine the video and audio";
+
   private static volatile CookieDownloadService instance;
   private static boolean starting;
   private final Handler main = new Handler(Looper.getMainLooper());
@@ -259,11 +279,25 @@ public final class CookieDownloadService extends Service {
     }
 
     void checkCurrent() throws Cancelled {
-      if (cancelled.get()
-          || stopping
-          || Thread.currentThread().isInterrupted()
-          || !DownloadStore.cookieCurrent(CookieDownloadService.this, job.entry.key, job.token))
+      checkStopped();
+      if (!DownloadStore.cookieCurrent(CookieDownloadService.this, job.entry.key, job.token))
         throw new Cancelled();
+    }
+
+    /** The in-memory part of {@link #checkCurrent}, cheap enough for every read. */
+    void checkStopped() throws Cancelled {
+      if (cancelled.get() || stopping || Thread.currentThread().isInterrupted())
+        throw new Cancelled();
+    }
+
+    /** Whether this attempt was cancelled, stopped, or removed or replaced in the store. */
+    boolean stale() {
+      try {
+        checkCurrent();
+        return false;
+      } catch (Cancelled cancelledOrReplaced) {
+        return true;
+      }
     }
 
     void checkNetwork() throws IOException {
@@ -358,6 +392,184 @@ public final class CookieDownloadService extends Service {
 
     private void download(File partial) throws IOException {
       URI target = httpsUri(job.entry.url);
+      if (job.audioUrl.isEmpty()) {
+        HttpURLConnection request = open(target, null);
+        total = request.getContentLengthLong();
+        update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
+        long received = copy(request, partial, false);
+        if (received == 0 || (total >= 0 && received != total))
+          throw new IOException("The media download was incomplete");
+        return;
+      }
+      URI audio = httpsUri(job.audioUrl);
+      File video = new File(partial.getPath() + "-video.part");
+      File sound = new File(partial.getPath() + "-audio.part");
+      try {
+        long videoLength = length(target);
+        long audioLength = length(audio);
+        total = videoLength + audioLength;
+        update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
+        downloadRanges(target, videoLength, video);
+        downloadRanges(audio, audioLength, sound);
+        update(DownloadManager.STATUS_RUNNING, 0, "Combining video and audio", 0, job.attempts);
+        makeRoom(partial, video.length() + sound.length());
+        try {
+          StreamMerger.merge(video, sound, partial, job.entry.mime, this::stale);
+        } catch (StreamMerger.Unmergeable e) {
+          checkCurrent();
+          throw new PermanentFailure("Could not combine the video and audio. Try another quality.");
+        } catch (IOException e) {
+          checkCurrent();
+          throw new PermanentFailure(
+              "Could not write the combined video. Check free space and retry.");
+        }
+        bytes = total = partial.length();
+      } finally {
+        video.delete();
+        sound.delete();
+      }
+    }
+
+    /**
+     * Frees {@code bytes} on {@code file}'s volume, clearing cache if needed. Merging needs Android
+     * 10, so older versions are not checked.
+     */
+    private void makeRoom(File file, long bytes) throws PermanentFailure {
+      if (Build.VERSION.SDK_INT < 26) return;
+      StorageManager storage = getSystemService(StorageManager.class);
+      UUID volume;
+      try {
+        volume = storage.getUuidForPath(file.getParentFile());
+      } catch (IOException | RuntimeException unknown) {
+        return; // Let the merge itself report a failure.
+      }
+      try {
+        storage.allocateBytes(volume, bytes);
+      } catch (IOException full) {
+        throw new PermanentFailure(NO_ROOM_TO_MERGE);
+      } catch (RuntimeException unknown) {
+        // Let the merge itself report a failure.
+      }
+    }
+
+    /** The full size of a file that is downloaded in ranges. */
+    private long length(URI target) throws IOException {
+      HttpURLConnection request = open(target, FIRST_BYTE);
+      try {
+        long length =
+            request.getResponseCode() == HttpURLConnection.HTTP_OK
+                ? request.getContentLengthLong()
+                : rangeLength(request.getHeaderField("Content-Range"));
+        if (length <= 0)
+          throw new PermanentFailure("The media server did not report the file size.");
+        return length;
+      } finally {
+        request.disconnect();
+      }
+    }
+
+    private long rangeLength(String contentRange) {
+      long[] range = ByteRanges.parse(contentRange);
+      return range == null ? -1 : range[2];
+    }
+
+    /**
+     * A failed range is retried in place, keeping the ranges already saved; permanent failures,
+     * pauses and cancellation end the download at once.
+     */
+    private void downloadRanges(URI target, long length, File file) throws IOException {
+      if (file.exists() && !file.delete()) throw new IOException("Could not reset a partial file");
+      for (long position = 0; position < length; ) {
+        for (int failures = 0; ; failures++) {
+          try {
+            position += downloadRange(target, position, length, file);
+            break;
+          } catch (PermanentFailure | NetworkPaused | Cancelled stop) {
+            throw stop;
+          } catch (IOException failure) {
+            if (failures >= RANGE_RETRIES) throw failure;
+            truncate(file, position);
+            backOff(RANGE_RETRY_MS << failures);
+          }
+        }
+      }
+    }
+
+    /** Appends the range of {@code target} that starts at {@code position}; returns its size. */
+    private long downloadRange(URI target, long position, long length, File file)
+        throws IOException {
+      HttpURLConnection request = open(target, ByteRanges.request(position, length));
+      try {
+        long expected;
+        if (request.getResponseCode() == HttpURLConnection.HTTP_OK) {
+          if (position != 0) throw new IOException("The media server ignored the range");
+          expected = length;
+        } else {
+          long[] range = ByteRanges.parse(request.getHeaderField("Content-Range"));
+          if (range != null && range[2] != length)
+            throw new PermanentFailure("The media file changed during the download. Retry.");
+          if (range == null || range[0] != position)
+            throw new IOException("The media server sent an unexpected range");
+          expected = range[1] - range[0] + 1;
+        }
+        long received = copy(request, file, true);
+        if (received != expected) throw new IOException("The media download was incomplete");
+        return received;
+      } finally {
+        request.disconnect();
+      }
+    }
+
+    /** Drops the bytes a failed range appended after {@code position}. */
+    private void truncate(File file, long position) throws IOException {
+      long extra = file.length() - position;
+      if (extra <= 0) return;
+      try (RandomAccessFile access = new RandomAccessFile(file, "rw")) {
+        access.setLength(position);
+      }
+      bytes -= extra;
+    }
+
+    /** Waits before a retry, ending early when the transfer is cancelled or the network drops. */
+    private void backOff(long millis) throws IOException {
+      long until = SystemClock.elapsedRealtime() + millis;
+      for (long left = millis; left > 0; left = until - SystemClock.elapsedRealtime()) {
+        checkNetwork();
+        try {
+          Thread.sleep(Math.min(left, 250));
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new Cancelled();
+        }
+      }
+      checkNetwork();
+    }
+
+    private long copy(HttpURLConnection request, File file, boolean append) throws IOException {
+      long received = 0;
+      long lastUpdate = 0;
+      try (InputStream input = request.getInputStream();
+          OutputStream output = new FileOutputStream(file, append)) {
+        byte[] buffer = new byte[32768];
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+          checkStopped();
+          long now = System.currentTimeMillis();
+          if (now - lastUpdate >= 1000) checkNetwork();
+          output.write(buffer, 0, count);
+          received += count;
+          bytes += count;
+          if (now - lastUpdate >= 1000) {
+            update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
+            lastUpdate = now;
+          }
+        }
+      }
+      return received;
+    }
+
+    /** Follows HTTPS redirects to a media response: 200, or 206 when a range was requested. */
+    private HttpURLConnection open(URI target, String range) throws IOException {
       for (int redirects = 0; redirects <= 5; redirects++) {
         checkNetwork();
         HttpURLConnection request = (HttpURLConnection) target.toURL().openConnection();
@@ -366,6 +578,7 @@ public final class CookieDownloadService extends Service {
         request.setConnectTimeout(15000);
         request.setReadTimeout(15000);
         request.setRequestProperty("Accept-Encoding", "identity");
+        if (range != null) request.setRequestProperty("Range", range);
         if (job.headers != null)
           for (String header : new String[] {"User-Agent", "Referer"})
             if (job.headers.has(header))
@@ -392,8 +605,9 @@ public final class CookieDownloadService extends Service {
           }
           continue;
         }
-        if (response != HttpURLConnection.HTTP_OK) {
-          if (response == 429 || response >= 500)
+        if (response != HttpURLConnection.HTTP_OK
+            && (range == null || response != HttpURLConnection.HTTP_PARTIAL)) {
+          if (response == 408 || response == 429 || response >= 500)
             throw new IOException("Temporary server response");
           throw new PermanentFailure("The media link is unavailable. Find the post again.");
         }
@@ -403,27 +617,7 @@ public final class CookieDownloadService extends Service {
                 || type.toLowerCase(Locale.ROOT).startsWith("application/json")))
           throw new PermanentFailure(
               "The server returned a page instead of media. Find the post again.");
-        total = request.getContentLengthLong();
-        update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
-        long lastUpdate = 0;
-        try (InputStream input = request.getInputStream();
-            OutputStream output = new FileOutputStream(partial)) {
-          byte[] buffer = new byte[32768];
-          int count;
-          while ((count = input.read(buffer)) != -1) {
-            checkNetwork();
-            output.write(buffer, 0, count);
-            bytes += count;
-            long now = System.currentTimeMillis();
-            if (now - lastUpdate >= 1000) {
-              update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
-              lastUpdate = now;
-            }
-          }
-        }
-        if (bytes == 0 || (total >= 0 && bytes != total))
-          throw new IOException("The media download was incomplete");
-        return;
+        return request;
       }
       throw new PermanentFailure("Too many download redirects");
     }
