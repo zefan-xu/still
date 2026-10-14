@@ -27,8 +27,8 @@ INSTRUMENTATION_CODE: {terminal}
 
 class InstrumentationResultsTest(unittest.TestCase):
     def test_success_requires_requested_test(self):
-        self.assertTrue(runner.parse_instrumentation(output(), 1, ["org.still.saver.Example#works"])["passed"])
-        self.assertFalse(runner.parse_instrumentation(output(), 1, ["org.still.saver.Missing"])["passed"])
+        self.assertTrue(runner.parse_instrumentation(output(), ["org.still.saver.Example#works"])["passed"])
+        self.assertFalse(runner.parse_instrumentation(output(), ["org.still.saver.Missing"])["passed"])
 
     def test_junit_failure_despite_adb_success(self):
         self.assertFalse(runner.parse_instrumentation(output(-2, "FAILURES!!!"))["passed"])
@@ -47,8 +47,8 @@ class InstrumentationResultsTest(unittest.TestCase):
     def test_incomplete_execution(self):
         self.assertFalse(runner.parse_instrumentation(output().split("INSTRUMENTATION_STATUS_CODE: 0")[0])["passed"])
 
-    def test_wrong_count(self):
-        self.assertFalse(runner.parse_instrumentation(output(), 25)["passed"])
+    def test_declared_count_must_match_results(self):
+        self.assertFalse(runner.parse_instrumentation(output().replace("numtests=1", "numtests=2"))["passed"])
 
     def test_duplicate_result(self):
         self.assertFalse(runner.parse_instrumentation(output() + output())["passed"])
@@ -80,7 +80,7 @@ class RunnerWorkflowTest(unittest.TestCase):
 
     def test_offline_invocation_excludes_live_flag(self):
         self.run.command = Mock(return_value=(0, output(), "device.log"))
-        self.assertTrue(self.run.instrumentation("offline", ["Example#works"], 1))
+        self.assertTrue(self.run.instrumentation("offline", ["Example#works"]))
         command = self.run.command.call_args.args[1]
         self.assertNotIn("livePlatforms", command)
         self.assertIn("org.still.saver.Example#works", command)
@@ -92,7 +92,7 @@ class RunnerWorkflowTest(unittest.TestCase):
         adb.side_effect = lambda *args, **kwargs: events.append("remove") or SimpleNamespace(returncode=0)
         self.run.command = Mock(side_effect=lambda *args, **kwargs: events.append("instrument") or (0, output(), "live.log"))
         self.run.collect_live = Mock()
-        self.assertTrue(self.run.instrumentation("live", ["Example#works"], 1, "smallest"))
+        self.assertTrue(self.run.instrumentation("live", ["Example#works"], "smallest"))
         self.assertEqual(events, ["remove"] * len(runner.LIVE_REPORTS) + ["instrument"])
         self.assertTrue(all(call.args[0][-1].endswith(".json") for call in adb.call_args_list))
         self.assertIn("livePlatforms", self.run.command.call_args.args[1])
@@ -102,7 +102,7 @@ class RunnerWorkflowTest(unittest.TestCase):
     def test_timeout_stops_android_processes_and_raises(self, adb):
         self.run.command = Mock(return_value=(124, "", "timeout.log"))
         with self.assertRaisesRegex(RuntimeError, "timed out"):
-            self.run.instrumentation("offline", ["Example"], 1)
+            self.run.instrumentation("offline", ["Example"])
         self.assertEqual([c.args[0][-2:] for c in adb.call_args_list],
                          [["force-stop", "org.still.saver"], ["force-stop", "org.still.saver.test"]])
 
@@ -116,7 +116,7 @@ class RunnerWorkflowTest(unittest.TestCase):
 
     def test_instrumentation_arguments_are_passed_to_the_runner(self):
         self.run.command = Mock(return_value=(0, output(), "shots.log"))
-        self.assertTrue(self.run.instrumentation("shots", ["Example#works"], 1, arguments=[("readmeScreenshots", "true")]))
+        self.assertTrue(self.run.instrumentation("shots", ["Example#works"], arguments=[("readmeScreenshots", "true")]))
         command = self.run.command.call_args.args[1]
         index = command.index("readmeScreenshots")
         self.assertEqual(command[index - 1:index + 2], ["-e", "readmeScreenshots", "true"])

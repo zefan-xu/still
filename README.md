@@ -14,7 +14,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/platforms-dark.svg">
-  <img src="docs/readme/platforms-light.svg" height="26" alt="Works with X, Instagram, TikTok, Facebook, Pinterest, Threads and Bluesky">
+  <img src="docs/readme/platforms-light.svg" height="26" alt="Works with X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky and YouTube">
 </picture>
 
 <br><br>
@@ -45,8 +45,9 @@ Files go to `Downloads/Still`, or to another folder inside Downloads. Settings c
 | Pinterest | Videos and image pins |
 | Threads | Photos, carousels and videos |
 | Bluesky | Videos and photos |
+| YouTube | Videos and Shorts, up to 4K |
 
-Only public posts work. Private, login-only and deleted posts, streaming-only video, and Facebook photos are not supported. Platforms change without notice, so a scheduled job downloads real posts from every platform each week and opens an issue when one stops working; [VALIDATION.md](VALIDATION.md) lists the exact posts. If a link that used to work stops, [tell us](https://github.com/zefan-xu/still/issues/new?template=link-stopped-working.yml).
+Only public posts work. Private, login-only and deleted posts, streaming-only video such as live streams, and Facebook photos are not supported. YouTube serves most qualities as separate video and audio files; on Android 10 or later, Still downloads both and combines them on your phone without re-encoding. Qualities YouTube offers as H.264, usually up to 1080p, save as MP4. Above that, Still uses AV1 saved as MP4 on Android 14 or later, or VP9 saved as WebM. Qualities your phone can't play are not shown, so many phones top out at 1080p or 1440p. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered. Platforms change without notice, so a scheduled job downloads real posts from every platform each week and opens an issue when one stops working; [VALIDATION.md](VALIDATION.md) lists the exact posts. If a link that used to work stops, [tell us](https://github.com/zefan-xu/still/issues/new?template=link-stopped-working.yml).
 
 ## Privacy
 
@@ -85,10 +86,10 @@ The release workflow refuses to publish an APK signed by any other certificate (
 
 Every change reaches `main` through a pull request that must pass one required check, **CI passed**. Behind it:
 
-- **Unit and property tests.** 126 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
+- **Unit and property tests.** 134 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
 - **Mutation testing.** [PIT](https://pitest.org) plants small bugs in the core code; the build fails if fewer than 73% are caught. Line and branch coverage must stay above their floors as well.
 - **Static analysis.** [Error Prone](https://errorprone.info) and Android lint run with warnings as errors.
-- **Real devices.** 23 workflows (saving, the library, sharing, playback and the viewer, GIF export, settings and download state) run on Android 10 and Android 15 emulators against real files.
+- **Real devices.** 31 workflows (saving, the library, sharing, playback and the viewer, GIF export, merging video and audio, which qualities the phone can play, settings and download state) run on Android 10 and Android 15 emulators against real files.
 - **Release checks.** Before each release, the exact signed APK is checked for its version, signing certificate and bundled licenses, then installed and launched on an Android 15 emulator.
 
 [TESTING.md](TESTING.md) covers what each layer proves, what it doesn't, and how to run it.

@@ -58,11 +58,15 @@ public final class Media {
     return variants.get("smallest".equals(quality) ? variants.size() - 1 : 0);
   }
 
+  /**
+   * Size first: codecs differ in efficiency, so an AV1 1440p can have a lower bitrate than an H.264
+   * 1080p. Unknown sizes rank below known ones; bitrate then breaks ties.
+   */
   private static int compareQuality(Variant a, Variant b) {
-    int bitrate = Long.compare(b.bitrate, a.bitrate);
-    if (bitrate != 0) return bitrate;
     int pixels = Long.compare((long) b.width * b.height, (long) a.width * a.height);
     if (pixels != 0) return pixels;
+    int bitrate = Long.compare(b.bitrate, a.bitrate);
+    if (bitrate != 0) return bitrate;
     // Some public embeds label HD/SD but provide no numeric metadata.
     int labelledQuality = Integer.compare(labelRank(b.label), labelRank(a.label));
     if (labelledQuality != 0) return labelledQuality;

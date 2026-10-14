@@ -34,7 +34,7 @@ PALETTE = {
              "tertiary": "#9C9A90", "hairline": "#3D3D3A", "accent": "#D97757", "onInk": "#1F1E1D",
              "bezel": "#0B0B0A"},
 }
-PLATFORMS = ["X", "Instagram", "TikTok", "Facebook", "Pinterest", "Threads", "Bluesky"]
+PLATFORMS = ["X", "Instagram", "TikTok", "Facebook", "Pinterest", "Threads", "Bluesky", "YouTube"]
 SHOWCASE = [
     ("library", "Your library", "Everything you saved, by day"),
     ("save", "Save from any app", "Share a post, keep what you want"),

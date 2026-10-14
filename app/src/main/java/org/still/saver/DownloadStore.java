@@ -237,6 +237,7 @@ public final class DownloadStore {
           .put("id", -1)
           .put("scopedCookies", v.scopedCookies)
           .put("headers", new JSONObject(v.headers));
+      if (v.audioUrl != null) d.put("audioUrl", v.audioUrl);
       if (thumb != null) d.put("thumb", thumb);
       JSONArray a = read(c);
       a.put(d);
@@ -263,7 +264,7 @@ public final class DownloadStore {
       JSONObject d = a.optJSONObject(i);
       if (d == null || d.optLong("id", -1) != -1) continue;
       try {
-        if (!d.optString("scopedCookies").isEmpty()) {
+        if (customTransfer(d)) {
           d.put("id", COOKIE_TRANSFER_ID)
               .put("token", UUID.randomUUID().toString())
               .put("customStatus", DownloadManager.STATUS_PENDING)
@@ -320,7 +321,7 @@ public final class DownloadStore {
     for (int i = 0; i < a.length(); i++) {
       JSONObject d = a.optJSONObject(i);
       if (d != null
-          && ((!d.optString("scopedCookies").isEmpty() && d.optLong("id") == -1)
+          && ((customTransfer(d) && d.optLong("id") == -1)
               || (d.optLong("id") == COOKIE_TRANSFER_ID && new Entry(d).active()))) {
         cookieWork = true;
         break;
@@ -340,6 +341,11 @@ public final class DownloadStore {
       }
       write(c, a);
     }
+  }
+
+  /** Scoped cookies and separate audio tracks need Still's own transfer, not DownloadManager. */
+  private static boolean customTransfer(JSONObject d) {
+    return !d.optString("scopedCookies").isEmpty() || !d.optString("audioUrl").isEmpty();
   }
 
   public static String folder(Context c) {
@@ -489,7 +495,7 @@ public final class DownloadStore {
 
   static final class CookieJob {
     final Entry entry;
-    final String token, cookies, folder;
+    final String token, cookies, audioUrl, folder;
     final JSONObject headers;
     final boolean wifi;
     final long retryAt;
@@ -499,6 +505,7 @@ public final class DownloadStore {
       entry = new Entry(d);
       token = d.optString("token");
       cookies = d.optString("scopedCookies");
+      audioUrl = d.optString("audioUrl");
       folder = d.optString("folder", "Still");
       headers = d.optJSONObject("headers");
       wifi = d.optBoolean("wifi");
@@ -520,8 +527,7 @@ public final class DownloadStore {
 
   static synchronized boolean hasCookieWork(Context c) {
     for (Entry e : list(c))
-      if (e.active()
-          && (e.id == COOKIE_TRANSFER_ID || !e.data.optString("scopedCookies").isEmpty()))
+      if (e.active() && (e.id == COOKIE_TRANSFER_ID || customTransfer(e.data)))
         return true;
     return false;
   }

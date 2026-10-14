@@ -24,7 +24,7 @@ public class LinkParsingPropertyTest {
       new HashSet<>(
           Arrays.asList(
               "x.com", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "pinterest.com",
-              "pin.it", "threads.net", "threads.com", "bsky.app"));
+              "pin.it", "threads.net", "threads.com", "bsky.app", "youtube.com"));
 
   @Property(tries = 3000)
   void arbitraryTextIsAcceptedOrRejectedWithAMessage(@ForAll String text) {
@@ -116,6 +116,7 @@ public class LinkParsingPropertyTest {
     Arbitrary<String> slug = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-").ofMinLength(1).ofMaxLength(14);
     Arbitrary<String> user = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyz0123456789._").ofMinLength(1).ofMaxLength(15);
     Arbitrary<String> twitterUser = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyz0123456789_").ofMinLength(1).ofMaxLength(15);
+    Arbitrary<String> youtubeId = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-").ofLength(11);
     return Arbitraries.oneOf(
         Combinators.combine(Arbitraries.of("x.com", "twitter.com", "mobile.twitter.com", "fxtwitter.com"), twitterUser, id)
             .as((h, u, i) -> "https://" + h + "/" + u + "/status/" + i),
@@ -134,7 +135,15 @@ public class LinkParsingPropertyTest {
         Combinators.combine(Arbitraries.of("www.threads.net", "www.threads.com"), user, slug)
             .as((h, u, s) -> "https://" + h + "/@" + u + "/post/" + s),
         Combinators.combine(user, Arbitraries.strings().alpha().numeric().ofMinLength(1).ofMaxLength(13))
-            .as((u, s) -> "https://bsky.app/profile/" + u + ".bsky.social/post/" + s));
+            .as((u, s) -> "https://bsky.app/profile/" + u + ".bsky.social/post/" + s),
+        Combinators.combine(
+                Arbitraries.of(
+                    "https://www.youtube.com/watch?v=",
+                    "https://m.youtube.com/watch?feature=share&v=",
+                    "https://youtu.be/",
+                    "https://youtube.com/shorts/"),
+                youtubeId)
+            .as((prefix, v) -> prefix + v));
   }
 
   /** Prefixes and suffixes that messaging apps put around a shared link. */
@@ -181,7 +190,8 @@ public class LinkParsingPropertyTest {
     Arbitrary<String> host =
         Arbitraries.of(
             "x.com", "www.instagram.com", "tiktok.com", "facebook.com", "pinterest.com", "in.pinterest.com",
-            "bsky.app", "threads.net", "pbs.twimg.com", "video.twimg.com", "evil.com", "x.com.evil.com",
+            "bsky.app", "threads.net", "pbs.twimg.com", "video.twimg.com", "www.youtube.com", "youtu.be",
+            "evil.com", "x.com.evil.com",
             "user:pass@x.com", "x.com:443", "x.com:8080", "127.0.0.1", "[::1]", "xn--80ak6aa92e.com", "x.com.",
             "ex ample.com", "%78.com", "localhost");
     Arbitrary<String> path =

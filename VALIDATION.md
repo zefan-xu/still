@@ -31,6 +31,10 @@ Still 1.1.0, verified on 2026-10-13 with JDK 21, Android SDK 35 and an isolated 
 | Bluesky | `bsky.app/profile/bsky.app/post/3mv3shqdfuc2e` | Photo, 4000×3000 |
 | Threads | `threads.com/@zuck/post/DHV7vTivqWD`, `…/DMF6uUgx9f9` | Silent video and video with audio |
 | Threads | `threads.com/@nasa/post/DeSYGIdFUvp` | Carousel of seven photos at 2048 px |
+| YouTube | `youtube.com/watch?v=LeUcjqqhNxM` | Separate video and audio merged on the device: 1280×720 at highest, 256×144 at smallest, each with audio (2026-10-14) |
+| YouTube | `youtu.be/HOfdboHvshg`, `youtube.com/shorts/tPEE9ZwTmy0` | Merged 1920×818 (labelled 1080p, two 10 MB ranges) and an 854×470 Short (2026-10-14) |
+| YouTube | `youtube.com/watch?v=KwvyfS9Icyc` | 18-second clip whose 1440p and 2160p are AV1 and VP9 only. The emulator can't decode that AV1, so it is offered VP9: VP9 and Opus merged into a 3840×2160 WebM (39.8 MB, four 10 MB ranges) with audio, saved as `video/webm`; every packet matches YouTube's files and the Gallery app plays it. In a one-off check on the emulator, `StreamMerger` merged its 1080p AV1 and AAC into a playable MP4 whose packets match YouTube's (2026-10-14) |
+| YouTube | `youtube.com/watch?v=GNe2XHW3C4I` | 5-second clip with VP9 only above 1080p, merged into a 3840×2160 WebM (5.0 MB) with audio (2026-10-14) |
 
 Expected failures are also asserted: an unavailable Facebook video, a deleted Threads post and a text-only Threads post each report a specific, plain message.
 
@@ -43,7 +47,7 @@ Expected failures are also asserted: an unavailable Facebook video, a deleted Th
 
 ## Limits
 
-These are specific public samples, not a guarantee for every post, region or codec. Instagram and TikTok may refuse anonymous requests from a network after many requests, or from unusual HTTP clients; Still then reports that the platform is limiting the network. Login-required, private and deleted posts, streaming-only formats, split audio/video tracks and Facebook photos are not supported. Only API 35 was exercised on an emulator; API 24–28 storage, font, thumbnail and immersive-mode paths are untested on devices. Remote CI has not been run.
+These are specific public samples, not a guarantee for every post, region or codec. Instagram and TikTok may refuse anonymous requests from a network after many requests, or from unusual HTTP clients; Still then reports that the platform is limiting the network. Login-required, private and deleted posts, streaming-only formats, split audio/video tracks outside YouTube's H.264, 8-bit AV1 with AAC and SDR VP9 with Opus files (HDR, 10-bit and AI-upscaled copies are skipped; AV1 needs Android 14, the first release whose MP4 muxer writes it, and H.264 and VP9 need Android 10), and Facebook photos are not supported. On an API 24 emulator, Android's MP4 writer stopped at the first B-frame of the H.264 test asset ("do not support out of order frames"), and YouTube's H.264 has B-frames; the same merge tests pass on API 29 and 35 emulators. API 25–28 were not tried, so Android 7 to 9 are offered YouTube's complete files only. A quality is hidden when none of the phone's decoders reports that size and frame rate; the API 35 emulator decodes VP9 to 4K at 30 fps but AV1 only to 2048×2048 in software, so it is offered no AV1 above 1080p. The AV1 merge was verified only on API 35. Android's WebM muxer drops Opus's 6.5 ms encoder delay, so merged WebM audio starts that much late. Only API 35 ran the full suites; the API 24 and 29 emulators ran only the merge and decoder checks. API 24–28 storage, font, thumbnail and immersive-mode paths are untested on devices. Remote CI has not been run.
 
 ## Reproduce
 

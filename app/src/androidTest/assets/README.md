@@ -16,6 +16,32 @@ ffmpeg -f lavfi -i 'color=c=red:s=640x480:r=8:d=4' -f lavfi -i 'color=c=blue:s=6
 ffmpeg -f lavfi -i 'color=c=red:s=32x24:r=4:d=1' -f lavfi -i 'color=c=blue:s=32x24:r=4:d=1' -filter_complex '[0:v][1:v]concat=n=2:v=1:a=0[v]' -map '[v]' -loop 0 sample.gif
 ```
 
+`split-video.mp4` and `split-audio.m4a`: three seconds of a 320×240, 25 fps H.264 High test pattern with B-frames, and a 440 Hz AAC tone, each a fragmented single-track MP4 like the separate video and audio files YouTube serves.
+
+```sh
+ffmpeg -f lavfi -i 'testsrc2=s=320x240:r=25:d=3' -c:v libx264 -profile:v high -bf 2 -pix_fmt yuv420p -g 25 -an -movflags +dash+global_sidx -f mp4 split-video.mp4
+ffmpeg -f lavfi -i 'sine=frequency=440:sample_rate=44100:duration=3' -c:a aac -b:a 64k -vn -movflags +dash+global_sidx -f mp4 split-audio.m4a
+```
+
+`split-video.webm` and `split-audio.webm`: the same three seconds as an 8-bit VP9 (profile 0) test pattern and a 48 kHz Opus tone, each a single-track WebM laid out for DASH like YouTube's VP9 and Opus files.
+
+```sh
+ffmpeg -f lavfi -i 'testsrc2=s=320x240:r=25:d=3' -c:v libvpx-vp9 -b:v 200k -pix_fmt yuv420p -g 25 -an -dash 1 -f webm split-video.webm
+ffmpeg -f lavfi -i 'sine=frequency=440:sample_rate=48000:duration=3' -c:a libopus -b:a 48k -vn -dash 1 -f webm split-audio.webm
+```
+
+`split-video-av1.mp4`: the same three seconds as an 8-bit AV1 (Main) test pattern in a fragmented single-track MP4 like YouTube's AV1 files; the merge test pairs it with `split-audio.m4a`. It uses SVT-AV1: a fragmented libaom encode stores an empty `av1C` configuration, which Android's extractor rejects.
+
+```sh
+ffmpeg -f lavfi -i 'testsrc2=s=320x240:r=25:d=3' -c:v libsvtav1 -preset 10 -b:v 200k -pix_fmt yuv420p -g 25 -an -movflags +dash+global_sidx -f mp4 split-video-av1.mp4
+```
+
+`primed-audio.m4a`: the same AAC tone as an ordinary MP4, whose edit list skips the encoder's 1024 priming samples. Android versions that apply the edit list report its first sample before zero (−23 ms on API 35), which the merge must keep.
+
+```sh
+ffmpeg -f lavfi -i 'sine=frequency=440:sample_rate=44100:duration=3' -c:a aac -b:a 64k -vn primed-audio.m4a
+```
+
 The DocumentsProvider also generates a green 32×24 PNG and a deliberately invalid three-byte input. Encoded bytes may vary between FFmpeg versions; tests check observable properties and compare copied outputs to their current sources.
 
 ## README screenshots

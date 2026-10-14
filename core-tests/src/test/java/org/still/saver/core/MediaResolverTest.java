@@ -369,6 +369,21 @@ public class MediaResolverTest {
     }
   }
 
+  @Test
+  public void ranksLargerPicturesAboveHigherBitrates() {
+    Variant av1 =
+        new Variant("https://cdn.example/av1.mp4", "1440p", "video/mp4", 2600000, 2560, 1440);
+    Variant h264 =
+        new Variant("https://cdn.example/h264.mp4", "1080p60", "video/mp4", 4500000, 1920, 1080);
+    Variant h264Low =
+        new Variant("https://cdn.example/low.mp4", "1080p", "video/mp4", 3000000, 1920, 1080);
+    Variant unsized = new Variant("https://cdn.example/any.mp4", "MP4", "video/mp4", 9000000, 0, 0);
+    Media media = new Media("video", Arrays.asList(unsized, h264Low, h264, av1));
+    assertEquals(Arrays.asList(av1, h264, h264Low, unsized), media.variants);
+    assertSame(av1, media.chooseVariant("highest"));
+    assertSame(unsized, media.chooseVariant("smallest"));
+  }
+
   private static JSONObject format(String url, long bitrate) throws Exception {
     return new JSONObject().put("url", url).put("bitrate", bitrate).put("container", "mp4");
   }
