@@ -21,7 +21,9 @@ import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.still.saver.core.FacebookEmbedResolver;
 import org.still.saver.core.Media;
@@ -37,6 +39,8 @@ import org.still.saver.core.VideoSupport;
  */
 @RunWith(AndroidJUnit4.class)
 public final class LivePlatformDownloadTest {
+  @Rule public final TestName testName = new TestName();
+
   @Test
   public void x() throws Exception {
     verify("x", "https://x.com/i/status/1841206275088290279");
@@ -178,6 +182,7 @@ public final class LivePlatformDownloadTest {
       JSONObject result =
           new JSONObject()
               .put("platform", platform)
+              .put("test", "LivePlatformDownloadTest#" + testName.getMethodName())
               .put("source", source)
               .put("quality", quality)
               .put("resolver", facebookEmbed ? "public-facebook-embed" : "application");
@@ -275,7 +280,10 @@ public final class LivePlatformDownloadTest {
           metadata.release();
         }
       } catch (Exception | AssertionError failure) {
-        result.put("passed", false).put("error", failure.toString());
+        result
+            .put("passed", false)
+            .put("category", LiveFailure.category(failure))
+            .put("error", failure.toString());
         Throwable cause = failure.getCause();
         if (cause != null) result.put("cause", cause.toString());
       } finally {

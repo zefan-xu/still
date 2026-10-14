@@ -9,6 +9,15 @@ from unittest.mock import Mock, patch
 spec = importlib.util.spec_from_file_location("still_test", Path(__file__).parents[1] / "test.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
+spec = importlib.util.spec_from_file_location("ci_summary", Path(__file__).parents[1] / "ci_summary.py")
+ci_summary = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ci_summary)
+
+BOT_CHECK = {"passed": False, "category": "blocked",
+             "error": "java.io.IOException: YouTube is asking this network to prove it is not a bot. Try again"
+                      " later or on another connection.",
+             "cause": "com.yausername.youtubedl_android.YoutubeDLException: ERROR: [youtube] LeUcjqqhNxM: Sign in"
+                      " to confirm you’re not a bot."}
 
 
 def output(status=0, summary="OK (1 test)", terminal="-1"):
@@ -160,6 +169,156 @@ class RunnerWorkflowTest(unittest.TestCase):
         self.args.serial = None
         with self.assertRaisesRegex(RuntimeError, "exactly one"):
             self.run.device()
+
+
+class LiveOutcomeTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.directory = Path(self.temp.name)
+
+    def suite(self, name, reports, statuses, errors=()):
+        """reports maps platform to (test, attempts); statuses maps test to its JUnit status."""
+        (self.directory / name).mkdir()
+        for platform, (test, attempts) in reports.items():
+            for attempt in attempts:
+                attempt.setdefault("test", test)
+            (self.directory / name / f"live-{platform}.json").write_text(runner.json.dumps(attempts))
+        tests = [{"class": "org.still.saver." + t.split("#")[0], "test": t.split("#")[1], "status": s,
+                  "stack": "" if s == 0 else f"java.lang.AssertionError: {t} failed\n\tat Example"}
+                 for t, s in statuses.items()]
+        failed = [f"org.still.saver.{t} failed or skipped (status {s})" for t, s in statuses.items() if s]
+        return {"name": name, "tests": tests, "evidence": [f"live-{p}.json" for p in reports],
+                "errors": failed + (["Missing or inconsistent JUnit success summary"] if failed else []) + list(errors)}
+
+    def test_junit_result_decides_and_a_later_candidate_can_pass(self):
+        suite = self.suite("live-highest", {
+            "x": ("LivePlatformDownloadTest#x", [{"passed": True}]),
+            "tiktok": ("LivePlatformDownloadTest#tiktok", [dict(BOT_CHECK), {"passed": True}]),
+        }, {"LivePlatformDownloadTest#x": 0, "LivePlatformDownloadTest#tiktok": 0})
+        self.assertEqual(runner.live_outcome(self.directory, [suite]),
+                         {"passed": ["tiktok", "x"], "blocked": {}, "broken": {}})
+
+    def test_bot_check_on_every_attempt_is_blocked(self):
+        suite = self.suite("live-highest", {
+            "youtube": ("LivePlatformDownloadTest#youtube", [dict(BOT_CHECK), dict(BOT_CHECK)]),
+        }, {"LivePlatformDownloadTest#youtube": -2})
+        outcome = runner.live_outcome(self.directory, [suite])
+        self.assertEqual(list(outcome["blocked"]), ["youtube"])
+        self.assertIn("not a bot", outcome["blocked"]["youtube"])
+        self.assertIn("caused by com.yausername", outcome["blocked"]["youtube"])
+        self.assertEqual(outcome["broken"], {})
+
+    def test_one_broken_or_uncategorized_attempt_makes_the_platform_broken(self):
+        suite = self.suite("live-highest", {
+            "youtube": ("LivePlatformDownloadTest#youtube", [
+                dict(BOT_CHECK), {"passed": False, "category": "broken", "error": "AssertionError: Expected video"}]),
+            "threads-unavailable": ("LiveMetaAvailabilityTest#threadsUnavailable", [
+                {"passed": False, "message": "Threads did not provide a public video embed for this post."}]),
+        }, {"LivePlatformDownloadTest#youtube": -2, "LiveMetaAvailabilityTest#threadsUnavailable": -2})
+        outcome = runner.live_outcome(self.directory, [suite])
+        self.assertEqual(outcome["broken"], {
+            "threads-unavailable": "Threads did not provide a public video embed for this post.",
+            "youtube": "AssertionError: Expected video"})
+        self.assertEqual(outcome["blocked"], {})
+
+    def test_failure_without_json_and_runner_errors_are_broken(self):
+        suite = self.suite("live-highest", {"x": ("LivePlatformDownloadTest#x", [{"passed": True}])},
+                           {"LivePlatformDownloadTest#x": 0,
+                            "DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid": -2},
+                           errors=["adb exited 1"])
+        outcome = runner.live_outcome(self.directory, [suite])
+        self.assertEqual(outcome["broken"], {
+            "DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid":
+                "java.lang.AssertionError: DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid failed",
+            "live-highest": "adb exited 1"})
+        self.assertEqual(outcome["passed"], ["x"])
+
+    def test_failed_test_whose_json_shows_no_failure_is_broken(self):
+        suite = self.suite("live-highest", {"x-gif": ("LivePostDownloadTest#xGif", [{"passed": True}])},
+                           {"LivePostDownloadTest#xGif": -2})
+        self.assertEqual(runner.live_outcome(self.directory, [suite])["broken"],
+                         {"x-gif": "java.lang.AssertionError: LivePostDownloadTest#xGif failed"})
+
+    def test_worst_result_across_qualities_wins(self):
+        highest = self.suite("live-highest", {
+            "youtube": ("LivePlatformDownloadTest#youtube", [dict(BOT_CHECK)]),
+            "x": ("LivePlatformDownloadTest#x", [{"passed": False, "category": "broken", "error": "gone"}]),
+        }, {"LivePlatformDownloadTest#youtube": -2, "LivePlatformDownloadTest#x": -2})
+        smallest = self.suite("live-smallest", {
+            "youtube": ("LivePlatformDownloadTest#youtube", [{"passed": True}]),
+            "x": ("LivePlatformDownloadTest#x", [dict(BOT_CHECK)]),
+        }, {"LivePlatformDownloadTest#youtube": 0, "LivePlatformDownloadTest#x": -2})
+        outcome = runner.live_outcome(self.directory, [highest, smallest])
+        self.assertEqual((outcome["passed"], list(outcome["blocked"]), outcome["broken"]),
+                         ([], ["youtube"], {"x": "gone"}))
+
+    def test_unreadable_json_is_broken(self):
+        suite = self.suite("live-highest", {}, {"LivePlatformDownloadTest#x": -2})
+        (self.directory / "live-highest/live-x.json").write_text("[{")
+        suite["evidence"] = ["live-x.json"]
+        self.assertIn("x", runner.live_outcome(self.directory, [suite])["broken"])
+
+    def test_suites_without_evidence_are_ignored(self):
+        self.assertEqual(runner.live_outcome(self.directory, [{"name": "build", "passed": False}]),
+                         {"passed": [], "blocked": {}, "broken": {}})
+
+    @patch.object(runner.subprocess, "run")
+    def test_collect_live_records_the_outcome_in_the_report(self, adb):
+        attempts = runner.json.dumps([dict(BOT_CHECK, test="LivePlatformDownloadTest#youtube")]).encode()
+        adb.side_effect = lambda cmd, **kw: SimpleNamespace(
+            returncode=0 if cmd[-1] == "files/live-youtube.json" else 1, stdout=attempts)
+        with patch.object(runner, "ROOT", self.directory):
+            run = runner.Run(SimpleNamespace(mode="live"))
+        run.adb, run.serial = "adb", "emulator-5554"
+        run.report["suites"].append({"name": "live-highest", "errors": [], "tests": [
+            {"class": "org.still.saver.LivePlatformDownloadTest", "test": "youtube", "status": -2, "stack": ""}]})
+        run.collect_live("live-highest")
+        self.assertEqual(run.report["suites"][-1]["evidence"], ["live-youtube.json"])
+        self.assertEqual(list(run.report["live"]["blocked"]), ["youtube"])
+
+
+class LiveVerdictTest(unittest.TestCase):
+    def report(self, blocked=(), broken=(), passed=False, **extra):
+        live = {"passed": ["x"], "blocked": {n: "not a bot" for n in blocked},
+                "broken": {n: "gone" for n in broken}}
+        suites = [{"name": "build", "passed": True}, {"name": "live-highest", "passed": passed, "evidence": []}]
+        return {"mode": "live", "passed": passed, "suites": suites, "live": live, **extra}
+
+    def test_verdicts(self):
+        cases = {
+            "passed": self.report(passed=True),
+            "blocked": self.report(blocked=["youtube", "youtube-4k"]),
+            "broken": self.report(blocked=["youtube"], broken=["instagram"]),
+        }
+        for expected, report in cases.items():
+            with self.subTest(expected):
+                self.assertEqual(ci_summary.verdict(report), expected)
+
+    def test_unexplained_failures_are_broken(self):
+        failing_build = self.report(blocked=["youtube"])
+        failing_build["suites"][0]["passed"] = False
+        no_live = self.report()
+        del no_live["live"]
+        for report in (self.report(blocked=["youtube"], error="Instrumentation timed out"), failing_build,
+                       no_live, self.report()):
+            with self.subTest(report=report):
+                self.assertEqual(ci_summary.verdict(report), "broken")
+
+    def test_live_outputs(self):
+        self.assertEqual(ci_summary.live_outputs(self.report(blocked=["youtube", "youtube-4k"])),
+                         "verdict=blocked\nblocked=youtube, youtube-4k\nbroken=\n")
+        self.assertEqual(ci_summary.live_outputs(None), "verdict=broken\nblocked=\nbroken=\n")
+
+    def test_summary_lists_blocked_and_broken_platforms(self):
+        report = self.report(blocked=["youtube"], broken=["instagram"])
+        report["live"]["broken"]["instagram"] = "Could not load | status 500\n"
+        text = ci_summary.summary(report)
+        self.assertIn("**Live verdict: broken.**", text)
+        self.assertIn("| instagram | **broken** | Could not load &#124; status 500 |", text)
+        self.assertIn("| youtube | blocked | not a bot |", text)
+        self.assertIn("| x | pass | |", text)
+        self.assertNotIn("Live verdict", ci_summary.summary({"mode": "local", "passed": True, "suites": []}))
 
 
 if __name__ == "__main__":
