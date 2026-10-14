@@ -104,6 +104,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     session = retained instanceof SaveSession ? (SaveSession) retained : new SaveSession(this);
     build();
     actions = new EntryActions(this, sheet, actionsListener());
+    actions.restoreState(state);
     if (state != null) {
       input.setText(state.getString("input", ""));
       settleComposer();
@@ -639,6 +640,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     state.putString("input", input.getText().toString());
     state.putBoolean("searching", searching);
     state.putString("filter", filter);
+    actions.saveState(state);
   }
 
   @Override

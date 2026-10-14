@@ -6,6 +6,7 @@ import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.widget.LinearLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,11 +23,13 @@ final class EntryActions {
   }
 
   static final int STORAGE_REQUEST = 2;
+  private static final String RETRY = "retry", GIF = "gif";
+  private static final String PENDING_ACTION = "storageAction", PENDING_KEY = "storageEntry";
 
   private final Activity activity;
   private final Sheet sheet;
   private final Listener listener;
-  private Runnable afterPermission;
+  private String pendingAction, pendingKey;
 
   EntryActions(Activity activity, Sheet sheet, Listener listener) {
     this.activity = activity;
@@ -178,17 +181,7 @@ final class EntryActions {
   }
 
   void retry(DownloadStore.Entry e) {
-    Runnable run =
-        () ->
-            withStorage(
-                () -> {
-                  try {
-                    DownloadStore.retry(activity, e);
-                    listener.changed();
-                  } catch (RuntimeException error) {
-                    listener.message(error.getMessage());
-                  }
-                });
+    Runnable run = () -> withStorage(RETRY, e);
     if (e.active())
       sheet.confirm(
           "Restart download?",
@@ -207,30 +200,64 @@ final class EntryActions {
         "Not now",
         "Make GIF",
         false,
-        () ->
-            withStorage(
-                () -> {
-                  try {
-                    GifService.start(activity, e.uri, name(e));
-                    listener.message("Making a GIF. Follow its progress in your library.");
-                    listener.changed();
-                  } catch (RuntimeException error) {
-                    listener.message("Could not start the GIF. " + error.getMessage());
-                  }
-                }));
+        () -> withStorage(GIF, e));
   }
 
-  private void withStorage(Runnable action) {
-    if (StoragePermission.ensure(activity, STORAGE_REQUEST)) action.run();
-    else afterPermission = action;
+  private void withStorage(String action, DownloadStore.Entry e) {
+    if (StoragePermission.ensure(activity, STORAGE_REQUEST)) perform(action, e);
+    else {
+      pendingAction = action;
+      pendingKey = e.key;
+    }
+  }
+
+  private void perform(String action, DownloadStore.Entry e) {
+    if (GIF.equals(action)) {
+      try {
+        GifService.start(activity, e.uri, name(e));
+        listener.message("Making a GIF. Follow its progress in your library.");
+        listener.changed();
+      } catch (RuntimeException error) {
+        listener.message("Could not start the GIF. " + error.getMessage());
+      }
+      return;
+    }
+    try {
+      DownloadStore.retry(activity, e);
+      listener.changed();
+    } catch (RuntimeException error) {
+      listener.message(error.getMessage());
+    }
+  }
+
+  /** The storage prompt outlives a rotation, so the action waiting for it is kept by entry key. */
+  void saveState(Bundle state) {
+    state.putString(PENDING_ACTION, pendingAction);
+    state.putString(PENDING_KEY, pendingKey);
+  }
+
+  void restoreState(Bundle state) {
+    if (state == null) return;
+    pendingAction = state.getString(PENDING_ACTION);
+    pendingKey = state.getString(PENDING_KEY);
   }
 
   /** Forward from {@code onRequestPermissionsResult}. */
   void onPermissionResult(boolean granted) {
-    Runnable pending = afterPermission;
-    afterPermission = null;
-    if (pending == null) return;
-    if (granted) pending.run();
-    else listener.message(StoragePermission.DENIED);
+    String action = pendingAction, key = pendingKey;
+    pendingAction = pendingKey = null;
+    if (action == null || key == null) return;
+    if (!granted) {
+      listener.message(StoragePermission.DENIED);
+      return;
+    }
+    DownloadStore.Entry current;
+    try {
+      current = DownloadStore.find(activity, key);
+    } catch (IllegalStateException removed) {
+      listener.message(removed.getMessage());
+      return;
+    }
+    perform(action, current);
   }
 }
