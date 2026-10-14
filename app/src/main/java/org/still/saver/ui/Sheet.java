@@ -317,7 +317,8 @@ public final class Sheet {
     error.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
     inner.addView(error);
     ui.gap(inner, 14);
-    inner.addView(
+    TextView[] save = new TextView[1];
+    save[0] =
         ui.primaryButton(
             confirmLabel,
             () -> {
@@ -325,12 +326,19 @@ public final class Sheet {
               if (problem != null) {
                 error.setText(problem);
                 error.setVisibility(View.VISIBLE);
+                // On short screens the new line can push the button under the keyboard.
+                save[0].post(
+                    () ->
+                        save[0].requestRectangleOnScreen(
+                            new android.graphics.Rect(
+                                0, 0, save[0].getWidth(), save[0].getHeight() + ui.dp(12)),
+                            true));
                 return;
               }
               dismiss();
               accepted.chosen(0);
-            }),
-        new LinearLayout.LayoutParams(-1, -2));
+            });
+    inner.addView(save[0], new LinearLayout.LayoutParams(-1, -2));
     box.addView(inner);
     show(box);
     field.requestFocus();
