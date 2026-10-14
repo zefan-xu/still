@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.still.saver.core.MediaResolver;
+import org.still.saver.core.Platforms;
 import org.still.saver.ui.Sheet;
 import org.still.saver.ui.Snackbar;
 import org.still.saver.ui.Theme;
@@ -135,6 +136,11 @@ public final class SettingsActivity extends Activity {
             () -> choose("Theme", THEME_LABELS, THEME_VALUES, "theme", "system", true)));
 
     section("Sources");
+    list.addView(
+        ui.valueRow(
+            "Supported links",
+            Platforms.ALL.size() + " platforms · public posts only",
+            () -> sheet.show(SupportedLinks.build(ui, sheet))));
     String api = prefs().getString("api", DEFAULT_API);
     list.addView(ui.valueRow("X metadata service", URI.create(api).getHost(), this::editApi));
     list.addView(
