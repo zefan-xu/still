@@ -26,6 +26,10 @@ License texts are in `licenses/` and are packaged into the APK as assets along w
 
 JUnit 4.13.2: Eclipse Public License 1.0; Hamcrest: BSD. JVM org.json 20240303: public domain. Android test runner/AndroidJUnit, AndroidX Test Core 1.6.1 and Espresso Core 3.6.1: Apache-2.0. Android Gradle Plugin: Apache-2.0. Gradle wrapper: Apache-2.0. These test libraries are not included in the main APK.
 
+## Build-time art tools
+
+Anatomy's isometric kit (`kit/iso-kit.mjs` from https://github.com/wheresryan22/anatomy at commit `e6600ffc4e8e6620eeb45bf49bcdbd5e4b84163f`, MIT, Copyright (c) 2026 Ryan) is vendored unmodified in `tools/anatomy/` with its license. `tools/figures/build.mjs` uses it to draw the launcher icon, the notification icon and the empty-state figure, which are committed as Android VectorDrawable XML. The kit runs only at development time on Node.js; no anatomy code is included in the APK.
+
 ## External tools and services
 
 The public FxTwitter API is an external service, not bundled code. Its source and self-hosting instructions are at https://github.com/FxEmbed/FxEmbed and https://docs.fxembed.com. No affiliation with X, the supported platforms, or FxTwitter is claimed.
