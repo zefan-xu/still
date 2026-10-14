@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 
 // Releases pass -PstillVersion from the tag being published; local builds use the base version.
 // Raise baseVersion for a minor or major release; automatic releases otherwise bump the patch.
-def baseVersion = '1.1.0'
+def baseVersion = '1.2.0'
 def stillVersion = providers.gradleProperty('stillVersion').getOrElse(baseVersion)
 def versionParts = (stillVersion =~ /^(\d{1,3})\.(\d{1,2})\.(\d{1,2})$/)
 if (!versionParts.matches()) throw new GradleException("stillVersion must be MAJOR.MINOR.PATCH with MINOR and PATCH below 100: $stillVersion")
@@ -46,7 +46,6 @@ android {
         abortOnError true
         warningsAsErrors true
         checkReleaseBuilds true
-        baseline file('lint-baseline.xml')
         // Dependabot proposes upgrades; the app deliberately uses platform widgets and no translations.
         disable 'GradleDependency', 'NewerVersionAvailable', 'AndroidGradlePluginVersion', 'OldTargetApi',
                 'UseSwitchCompatOrMaterialCode', 'UseSwitchCompatOrMaterialXml', 'SetTextI18n'

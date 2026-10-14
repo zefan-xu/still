@@ -200,8 +200,7 @@ public final class GifService extends Service {
     main.post(
         () -> {
           if (!jobId.equals(activeJobId)) return;
-          if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE);
-          else stopForeground(true);
+          stopForeground(STOP_FOREGROUND_REMOVE);
           busy = false;
           currentProgress = 100;
           currentStatus = message;

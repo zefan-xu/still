@@ -138,10 +138,12 @@ function vectorXml(sections, { width, height, viewport }) {
     return group ? [`    <group ${group}>`, ...lines, `    </group>`] : lines;
   });
   const usesAapt = sections.some(({ art }) => art.ops.some((op) => op.kind === "halo"));
+  // Lint's VectorRaster flags vectors over 200 dp; the empty-state and tutorial figures are drawn that large on purpose.
+  const large = Math.max(width, height) > 200;
   return [
     `<?xml version="1.0" encoding="utf-8"?>`,
     `<!-- ${GENERATED} -->`,
-    `<vector xmlns:android="http://schemas.android.com/apk/res/android"${usesAapt ? `\n    xmlns:aapt="http://schemas.android.com/aapt"` : ""}`,
+    `<vector xmlns:android="http://schemas.android.com/apk/res/android"${usesAapt ? `\n    xmlns:aapt="http://schemas.android.com/aapt"` : ""}${large ? `\n    xmlns:tools="http://schemas.android.com/tools" tools:ignore="VectorRaster"` : ""}`,
     `    android:width="${width}dp" android:height="${height}dp"`,
     `    android:viewportWidth="${num(vw)}" android:viewportHeight="${num(vh)}">`,
     ...body,

@@ -30,7 +30,7 @@ Each gate fails the build; none only reports.
 | Coverage | JaCoCo line ≥ 87%, branch ≥ 72% for the code `core-tests` compiles | `core-tests/build.gradle` |
 | Mutation | PIT must kill ≥ 73% of mutants; surviving mutants are listed in `core-tests/build/reports/pitest/index.html` | `core-tests/build.gradle` |
 | Error Prone | Bug-pattern analysis of core code, warnings as errors | `core-tests/build.gradle` |
-| Android lint | Warnings as errors; `app/lint-baseline.xml` records existing issues so only new ones fail | `app/build.gradle` |
+| Android lint | Warnings as errors with no baseline; deliberate exceptions are suppressed where they occur with `tools:ignore` or `@SuppressLint` and a reason | `app/build.gradle` |
 
 Raise a floor when a change lifts the measured value well above it, so the floors keep tracking what the suite actually achieves. jqwik records failing seeds in `core-tests/build/jqwik-database` and replays them first on the next run.
 
