@@ -12,20 +12,31 @@ public final class FigureGeometry {
   /** The tray print's travel from inside the chute to its rest, in viewport units. */
   public static final float TRAY_DROP_X = 0.0f, TRAY_DROP_Y = 57.0316f;
 
-  /** drawable/fig_tutorial_*: viewport width. */
-  public static final float TUTORIAL_WIDTH = 320.0f;
+  /** drawable/fig_phone_*: viewport width and height. */
+  public static final float PHONE_VIEW_W = 150.0f, PHONE_VIEW_H = 319.0f;
 
-  /** Screen offset of one world unit along x, y and z in the tutorial, in viewport units. */
-  public static final float[] TUTORIAL_X = {1.4858f, 0.7429f},
-      TUTORIAL_Y = {-1.4858f, 0.7429f},
-      TUTORIAL_Z = {0.0f, -1.8197f};
+  /** Viewport offset of one world unit along x, y and z, and where the world origin lies. */
+  public static final float[] WORLD_X = {1.4546f, 0.7273f},
+      WORLD_Y = {-1.4546f, 0.7273f},
+      WORLD_Z = {0.0f, -1.7815f},
+      WORLD_ORIGIN = {64.7643f, 291.3165f};
 
-  /** Height of either feed above the print's rest on the stack. */
-  public static final float FEED_RISE = 33.1f;
+  /**
+   * The phone at rest: the plan direction its glass faces and its lean back from upright, in
+   * degrees, and the height of its bottom edge over the floor.
+   */
+  public static final float PHONE_FACING = 69.0f, PHONE_TILT = 14.0f, PHONE_FLOAT = 12.0f;
 
-  /** Print centre x where it waits inside the hood, and y where it lies on the feed table. */
-  public static final float SHARE_START = -63.0f, PASTE_START = -54.0f;
+  /** The phone's height and thickness. */
+  public static final float PHONE_H = 126.0f, PHONE_T = 6.2f;
 
-  /** Gap between the pusher at home and the print, and the pusher's full stroke, along y. */
-  public static final float PUSHER_GAP = 2.6f, PUSHER_STROKE = 52.6f;
+  /**
+   * The screen opening: width, height and corner radius, its bottom edge above the phone's, and
+   * the depth of the screen behind the glass.
+   */
+  public static final float SCREEN_W = 56.2f, SCREEN_H = 122.2f, SCREEN_R = 6.6f,
+      SCREEN_BOTTOM = 1.9f, SCREEN_RECESS = 1.2f;
+
+  /** The halo's centre, in viewport units. */
+  public static final float[] HALO = {75.0f, 279.8217f};
 }

@@ -108,11 +108,6 @@ public final class Motion {
     return a > 30 ? 1 : 1 - (1 + a) * (float) Math.exp(-a);
   }
 
-  /** The smaller of {@code a} and {@code b}, rounded over a width of about {@code k}. */
-  public static float softMin(float a, float b, float k) {
-    return Math.min(a, b) - k * (float) Math.log(1 + Math.exp(-Math.abs(a - b) / k));
-  }
-
   /** Attack over {@code rise} seconds, then exponential decay with time constant {@code fall}. */
   public static float burst(float age, float rise, float fall) {
     if (age < 0) return 0;

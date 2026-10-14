@@ -28,7 +28,7 @@ JUnit 4.13.2: Eclipse Public License 1.0; Hamcrest: BSD. JVM org.json 20240303: 
 
 ## Build-time art tools
 
-Anatomy's isometric kit (`kit/iso-kit.mjs` from https://github.com/wheresryan22/anatomy at commit `e6600ffc4e8e6620eeb45bf49bcdbd5e4b84163f`, MIT, Copyright (c) 2026 Ryan) is vendored unmodified in `tools/anatomy/` with its license. `tools/figures/build.mjs` uses it to draw the launcher icon, the notification icon and the empty-state figure, which are committed as Android VectorDrawable XML. The kit runs only at development time on Node.js; no anatomy code is included in the APK.
+Anatomy's isometric kit (`kit/iso-kit.mjs` from https://github.com/wheresryan22/anatomy at commit `e6600ffc4e8e6620eeb45bf49bcdbd5e4b84163f`, MIT, Copyright (c) 2026 Ryan) is vendored unmodified in `tools/anatomy/` with its license. `tools/figures/build.mjs` uses it to draw the launcher icon, the notification icon, the empty-state figure and the tutorial's phone, which are committed as Android VectorDrawable XML. The kit runs only at development time on Node.js; no anatomy code is included in the APK.
 
 ## External tools and services
 

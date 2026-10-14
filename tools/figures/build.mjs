@@ -6,7 +6,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as k from "../anatomy/kit/iso-kit.mjs";
-import * as L from "../anatomy/kit/lathe.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../..");
@@ -28,6 +27,8 @@ const ATTRS = {
   lit: "figLit",
   litEdge: "figLitEdge",
   halo: "figHalo",
+  glass: "figGlass",
+  glassHi: "figGlassHi",
 };
 
 const THEMES = {
@@ -45,6 +46,8 @@ const THEMES = {
     lit: "#D97757",
     litEdge: "#C6613F",
     halo: "#5C6B6656",
+    glass: "#2B2A27",
+    glassHi: "#6A6862",
   },
   dark: {
     paper: "#1F1E1D",
@@ -60,6 +63,8 @@ const THEMES = {
     lit: "#D97757",
     litEdge: "#E8977A",
     halo: "#A6000000",
+    glass: "#121110",
+    glassHi: "#4A4844",
   },
 };
 
@@ -89,8 +94,9 @@ class Art {
   stroke(d, tone, width = this.lines.line, { alpha = 1 } = {}) {
     if (d) this.ops.push({ kind: "stroke", d, tone, width, alpha });
   }
-  halo(cx, cy, rx, ry) {
-    this.ops.push({ kind: "halo", cx, cy, rx, ry, tone: "halo" });
+  // `core` is how far out the halo stays at full strength before it fades.
+  halo(cx, cy, rx, ry, core = 0.45) {
+    this.ops.push({ kind: "halo", cx, cy, rx, ry, core, tone: "halo" });
   }
   dots(points, r, tone, alpha = 1) {
     this.fill(points.map(([x, y]) => circleD(x, y, r)).join(""), tone, { alpha });
@@ -154,7 +160,7 @@ function opsXml(art, paint, indent) {
         `${indent}        <aapt:attr name="android:fillColor">`,
         `${indent}            <gradient android:type="radial" android:centerX="${num(cx)}" android:centerY="${num(cy)}" android:gradientRadius="${num(rx)}">`,
         `${indent}                <item android:offset="0" android:color="${paint(op.tone)}" />`,
-        `${indent}                <item android:offset="0.45" android:color="${paint(op.tone)}" />`,
+        `${indent}                <item android:offset="${num(op.core)}" android:color="${paint(op.tone)}" />`,
         `${indent}                <item android:offset="1" android:color="#00000000" />`,
         `${indent}            </gradient>`,
         `${indent}        </aapt:attr>`,
@@ -193,7 +199,7 @@ function svgOps(art, tones, transform = "") {
       const id = `halo${gradientId++}`;
       const [colour, opacity] = svgColour(tones[op.tone]);
       out.push(
-        `<defs><radialGradient id="${id}"><stop offset="0" stop-color="${colour}" stop-opacity="${num(opacity)}"/><stop offset="0.45" stop-color="${colour}" stop-opacity="${num(opacity)}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>`,
+        `<defs><radialGradient id="${id}"><stop offset="0" stop-color="${colour}" stop-opacity="${num(opacity)}"/><stop offset="${num(op.core)}" stop-color="${colour}" stop-opacity="${num(opacity)}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>`,
         `<ellipse cx="${num(op.cx)}" cy="${num(op.cy)}" rx="${num(op.rx)}" ry="${num(op.ry)}" fill="url(#${id})"/>`,
       );
       continue;
@@ -388,198 +394,199 @@ function trayFront(P = FP) {
 const START_OFFSET = k.axisVector(FP, [0, 0, START_Z - REST_Z]);
 
 // ---------------------------------------------------------------------------------------------
-// The onboarding figure: the same plinth, tray, chute and post, fed from two sides at the
-// height of the chute's lip. On the left a roller conveyor runs out of a covered hood: a print
-// shared from another app arrives by itself. On the right a feed table carries a hand pusher:
-// a print you paste is laid down and pushed in. Either way it crosses the lip and drops into
-// the tray, as in the empty state.
+// The onboarding figure: a phone floating over its halo, turned 20 degrees past the camera so its
+// right edge shows and leaning back so its screen faces the viewer. It is one rounded slab with a
+// glass front and a screen set a little behind the glass. The screen itself is drawn live in Java
+// (ui/TutorialFigure.java) in the plane exported below, and the phone's lift, lean and dip are
+// moves of that plane, so the drawing and the motion cannot drift apart.
 //
-// Every feed part lies outside the lip's plan (beside it, or under its overhang), so the feeds
-// are painted after the post and before the chute walls: wherever a feed and the chute overlap
-// on screen, the chute is the nearer. The print and the pusher stay level, so one translate
-// moves each; the pusher never reaches the lip, and the print only ever passes above the walls
-// it crosses or inside the chute and tray, so neither changes its slot. The hood's roof and
-// near wall are painted last, over the print waiting inside.
+// Three layers, back to front: the halo, the body (paper, edge band, glass, outline) and the
+// bezel (the glass ring round the screen opening, its rim and inner walls, the camera dot),
+// which is painted over the live screen.
 
-const TUT_W = 320;
-const FEED_TOP = 41.6;
-const ROLLER_R = 1.3;
-const FOOT_Z = -FOOT_H;
+const PHONE_VW = 150;
+const PHONE_LINES = { edge: 0.42, line: 0.3 };
+const PHONE = { w: 60, h: 126, t: 6.2, r: 8.5, bezel: 1.9, recess: 1.2, facing: 45 + 24, tilt: 14, float: 12 };
+const OPENING = { w: PHONE.w - 2 * PHONE.bezel, h: PHONE.h - 2 * PHONE.bezel, r: PHONE.r - PHONE.bezel };
+const CAMERA = { v: PHONE.h - PHONE.bezel - 3.3, r: 1.1 };
+const LIFT_ROOM = 5;
 
-const SHARE = {
-  x0: -80,
-  x1: -20,
-  rail: [22.3, 23.7],
-  railZ: 38.4,
-  railTop: 41,
-  column: [-62, 0],
-  beam: [-64, -60],
-  hood: { x1: -46, top: 47, roof: 1.2 },
-  start: -63,
+const add3 = (...vectors) => vectors.reduce((a, b) => a.map((value, i) => value + b[i]));
+const mul3 = (vector, by) => vector.map((value) => value * by);
+const dot3 = (a, b) => a.reduce((sum, value, i) => sum + value * b[i], 0);
+const viewOf = (P) => {
+  const { sinA, cosA, sinE, cosE } = k.cameraOf(P);
+  return [cosA * cosE, sinA * cosE, sinE];
 };
-const PASTE = {
-  plan: box(-17, 17, -84, -26, 1.2),
-  z: 38.8,
-  column: [0, -58],
-  beam: [-60, -56],
-  stop: box(-16, 16, -83.6, -81.6, 0.6),
-  stopH: 2.4,
-  pusher: box(-13, 13, -81.6, -78.6, 0.6),
-  pusherH: 2.8,
-  knob: { r: 2.4, h: 4 },
-  gap: 2.6,
-};
-// The print waits on the table with its far edge `gap` ahead of the pusher; the pusher stops
-// 0.2 short of the lip, and the print glides on to the middle of the chute.
-PASTE.start = PASTE.pusher.y + PASTE.pusher.d + PASTE.gap - PRINT.y;
-PASTE.stroke = LIP.outer.y - 0.2 - (PASTE.pusher.y + PASTE.pusher.d);
-const FOOT_R = 5.6;
-const ROOF = box(SHARE.x0 - 2, SHARE.hood.x1 + 0.6, -SHARE.rail[1] - 0.6, SHARE.rail[1] + 0.6, 0.6);
-const KNOB_AT = [0, PASTE.pusher.y + PASTE.pusher.d / 2];
 
-const circlePoints = ([cx, cy], r, z) => k.circleRing(cx, cy, r, 24).map(([x, y]) => [x, y, z]);
-const tutPoints = [
-  ...k.boxCorners(PLINTH, -FOOT_H, FLOOR),
-  ...circlePoints(SHARE.column, FOOT_R, FOOT_Z),
-  ...circlePoints(PASTE.column, FOOT_R, FOOT_Z),
-  ...k.boxCorners(ROOF, SHARE.hood.top, SHARE.hood.top + SHARE.hood.roof),
-  ...k.boxCorners(box(SHARE.x0 - 1.4, SHARE.x1, -SHARE.rail[1], SHARE.rail[1]), SHARE.railZ, SHARE.railTop),
-  ...k.boxCorners(PASTE.plan, PASTE.z, FEED_TOP + PASTE.stopH),
-  ...circlePoints(KNOB_AT, PASTE.knob.r, FEED_TOP + PASTE.pusherH + PASTE.knob.h),
-  ...k.boxCorners(k.insetPlan(POST, -0.6), POST_TOP, POST_TOP + 1.2),
+// u runs right along the screen, v up it and w out of the glass, from the middle of the bottom
+// edge of the back. `facing` is the plan direction the glass faces, `tilt` its lean back.
+function phoneFrame({ facing, tilt, float }) {
+  const f = (facing * Math.PI) / 180;
+  const t = (tilt * Math.PI) / 180;
+  const [nx, ny] = [Math.cos(f), Math.sin(f)];
+  return {
+    o: [0, 0, float],
+    u: [Math.sin(f), -Math.cos(f), 0],
+    v: [-nx * Math.sin(t), -ny * Math.sin(t), Math.cos(t)],
+    w: [nx * Math.cos(t), ny * Math.cos(t), Math.sin(t)],
+  };
+}
+const PF = phoneFrame(PHONE);
+const inPhone = ([u, v, w]) => add3(PF.o, mul3(PF.u, u), mul3(PF.v, v), mul3(PF.w, w));
+const BODY = k.roundedPlan({ x: -PHONE.w / 2, y: 0, w: PHONE.w, d: PHONE.h, r: PHONE.r }, 10);
+const OPEN = k.roundedPlan({ x: -OPENING.w / 2, y: PHONE.bezel, w: OPENING.w, d: OPENING.h, r: OPENING.r }, 10);
+const [HALO_AT, HALO_R] = [(() => {
+  const [x, y] = inPhone([0, PHONE.h / 2, PHONE.t / 2]);
+  return [x, y];
+})(), PHONE.w * 0.5];
+
+function hull(points) {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list) => {
+    const out = [];
+    for (const point of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], point) <= 0) out.pop();
+      out.push(point);
+    }
+    return out.slice(0, -1);
+  };
+  return [...half(sorted), ...half([...sorted].reverse())];
+}
+// Index runs where `flags` equals `want`, each closed by the next index, as the kit's extrude.
+function runs(flags, want) {
+  const count = flags.length;
+  const start = flags.findIndex((flag, i) => flag !== flags[(i + count - 1) % count]);
+  if (start < 0) return flags[0] === want ? [Array.from({ length: count + 1 }, (_, i) => i % count)] : [];
+  const out = [];
+  let run = null;
+  for (let step = 0; step < count; step++) {
+    const i = (start + step) % count;
+    if (flags[i] === want) {
+      if (!run) run = [i];
+      run.push((i + 1) % count);
+    } else if (run) {
+      out.push(run);
+      run = null;
+    }
+  }
+  if (run) out.push(run);
+  return out;
+}
+
+// k.extrude for a ring in the phone's face plane, pushed out along w from w0 to w1: the paper
+// hull, the edge band in four shades by facing (faces turned up get the lighter top), the
+// front cap, the crease where the cap meets a visible side, the cap's own silhouette edges (rim)
+// and the rest of the outline.
+function slabAlong(ring, w0, w1, P) {
+  const view = viewOf(P);
+  const { sinA, cosA } = k.cameraOf(P);
+  const count = ring.length;
+  const [cu, cv] = ring.reduce(([a, b], [u, v]) => [a + u / count, b + v / count], [0, 0]);
+  const normals = ring.map(([au, av], i) => {
+    const [bu, bv] = ring[(i + 1) % count];
+    const length = Math.hypot(bu - au, bv - av) || 1;
+    let [nu, nv] = [(bv - av) / length, -(bu - au) / length];
+    if (nu * ((au + bu) / 2 - cu) + nv * ((av + bv) / 2 - cv) < 0) [nu, nv] = [-nu, -nv];
+    return add3(mul3(PF.u, nu), mul3(PF.v, nv));
+  });
+  const facing = normals.map((n) => dot3(n, view) > 1e-9);
+  const front = ring.map(([u, v]) => k.iso(inPhone([u, v, w1]), P));
+  const back = ring.map(([u, v]) => k.iso(inPhone([u, v, w0]), P));
+  const quad = (i) => {
+    const j = (i + 1) % count;
+    return k.pathOf([front[i], front[j], back[j], back[i]], true);
+  };
+  // The kit's light, raised off the floor so the band turns from shade to top in even steps.
+  const light = [-sinA / Math.SQRT2, cosA / Math.SQRT2, Math.SQRT1_2];
+  const bands = [[], [], [], [], []];
+  ring.forEach((_, i) => {
+    if (!facing[i]) return;
+    const lit = (dot3(normals[i], light) + 1) / 2;
+    bands[Math.min(4, Math.max(0, Math.floor(lit * 5)))].push(quad(i));
+  });
+  const edges = [];
+  for (const run of runs(facing, true)) edges.push(k.pathOf(run.map((i) => back[i])));
+  for (let i = 0; i < count; i++) if (facing[(i + count - 1) % count] !== facing[i]) edges.push(k.pathOf([front[i], back[i]]));
+  return {
+    fill: k.pathOf(hull([...front, ...back]), true),
+    shades: bands.slice(0, 4).map((list) => list.join("")),
+    tops: bands[4].join(""),
+    front: k.pathOf(front, true),
+    crease: runs(facing, true).map((run) => k.pathOf(run.map((i) => front[i]))).join(""),
+    rim: runs(facing, false).map((run) => k.pathOf(run.map((i) => front[i]))).join(""),
+    edges: edges.join(""),
+  };
+}
+
+const facePath = (ring, w, P) => k.pathOf(ring.map(([u, v]) => k.iso(inPhone([u, v, w]), P)), true);
+const circleIn = (cu, cv, r, steps = 24) => k.circleRing(cu, cv, r, steps);
+
+const phonePoints = [
+  ...[0, PHONE.t].flatMap((w) => BODY.map(([u, v]) => inPhone([u, v, w]))),
+  ...[0, PHONE.t].flatMap((w) => BODY.map(([u, v]) => add3(inPhone([u, v, w]), [0, 0, LIFT_ROOM]))),
+  ...k.circleRing(HALO_AT[0], HALO_AT[1], HALO_R * 1.1, 24).map(([x, y]) => [x, y, 0]),
 ];
-const { P: TP, height: TUT_H } = fitted(tutPoints, TUT_W, 6);
+const { P: PP, height: PHONE_VH } = fitted(phonePoints, PHONE_VW, 5);
 
-// A column on a round foot: flange with three screws, boss, shaft and a collar under its beam.
-function column(art, P, [cx, cy], top) {
-  const flange = FOOT_Z + 1.2;
-  art.solid(k.cylinder(cx, cy, FOOT_R, FOOT_Z, 1.2, P, 40, 0.4), { tone: "lo" });
-  const screws = [45, 165, 285].map((degrees) => {
-    const a = (degrees * Math.PI) / 180;
-    return [cx + 4 * Math.cos(a), cy + 4 * Math.sin(a)];
-  });
-  for (const [x, y] of byDepth(P)(screws)) screw(art, x, y, flange, P);
-  art.solid(k.cylinder(cx, cy, 2.9, flange, 1.4, P, 32, 0.3), { tone: "mid" });
-  art.solid(k.cylinder(cx, cy, 1.9, flange + 1.4, top - 2 - flange - 1.4, P, 28), {
-    tone: "mid",
-    crease: "none",
-    inner: (a) => a.stroke(k.sideArc(cx, cy, 1.9, flange + 6, P, 16), "faint"),
-  });
-  art.solid(k.cylinder(cx, cy, 2.8, top - 2, 2, P, 32, 0.3), { tone: "mid" });
-}
-
-function tutorialBase(P) {
-  const art = new Art(FIG_LINES);
-  haloUnder(art, PLINTH, -FOOT_H, P, { grow: 1.1, drop: 3, within: TUT_W });
-  for (const at of [SHARE.column, PASTE.column]) {
-    const plan = { x: at[0] - FOOT_R, y: at[1] - FOOT_R, w: FOOT_R * 2, d: FOOT_R * 2, r: FOOT_R };
-    haloUnder(art, plan, FOOT_Z, P, { grow: 1.25, drop: 1.6 });
-  }
-  trayBase(art, P);
+function phoneHalo(P) {
+  const art = new Art(PHONE_LINES);
+  const flat = k.circleRing(HALO_AT[0], HALO_AT[1], HALO_R, 24).map(([x, y]) => k.iso([x, y, 0], P));
+  const xs = flat.map(([x]) => x);
+  const ys = flat.map(([, y]) => y);
+  art.halo((Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2, 0.15);
   return art;
 }
 
-// The share conveyor up to the hood's far walls: everything behind the print as it rides.
-function shareFeed(P) {
-  const art = new Art(FIG_LINES);
-  const [r0, r1] = SHARE.rail;
-  const beamZ = SHARE.railZ - 2;
-  column(art, P, SHARE.column, beamZ);
-  art.solid(k.slabOf(box(SHARE.beam[0], SHARE.beam[1], -r1, r1, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
-  // The inner beam is bolted to the chute's outer face, under the lip's overhang.
-  art.solid(k.slabOf(box(-22.6, CHUTE.outer.x, -r1, r1, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
-  const rail = (y0, y1, inner) =>
-    art.solid(k.slabOf(box(SHARE.x0, SHARE.x1, y0, y1, 0.4), SHARE.railZ, SHARE.railTop - SHARE.railZ, P, 2, 0.3), { tone: "mid", inner });
-  art.solid(k.slabOf(box(SHARE.x0 - 1.4, SHARE.x0, -r1, r1, 0.4), SHARE.railZ, SHARE.hood.top - SHARE.railZ, P, 2, 0.3), { tone: "mid" });
-  rail(-r1, -r0);
-  const wallH = SHARE.hood.top - SHARE.railTop;
-  art.solid(k.slabOf(box(SHARE.x0, SHARE.hood.x1, -r1, -r0, 0.3), SHARE.railTop, wallH, P, 2), { tone: "mid" });
-  art.solid(k.slabOf(box(SHARE.hood.x1 - 0.8, SHARE.hood.x1 + 0.6, -r1 - 0.4, -r0 + 0.4, 0.3), SHARE.railTop, wallH, P, 2, 0.3), { tone: "mid" });
-  const rollers = [];
-  for (let x = SHARE.x1 - 3; x - ROLLER_R > SHARE.x0 + 0.5; x -= 6) rollers.push(x);
-  for (const x of [...rollers].reverse()) {
-    const F = L.frameAlong([x, -r0, FEED_TOP - ROLLER_R], [0, 1, 0]);
-    art.solid(L.disc(0, 2 * r0, ROLLER_R, F, P), { tone: "mid" });
-  }
-  rail(r0, r1, (a) => a.dots(rollers.map((x) => k.iso([x, r1, FEED_TOP - ROLLER_R], P)), 0.36, "lo"));
+function phoneBody(P) {
+  const art = new Art(PHONE_LINES);
+  const slab = slabAlong(BODY, 0, PHONE.t, P);
+  art.fill(slab.fill, "paper");
+  slab.shades.forEach((d, shade) => art.fill(d, `shade${shade}`));
+  art.fill(slab.tops, "top");
+  art.fill(slab.front, "glass");
+  art.stroke(slab.edges, "mid", PHONE_LINES.edge);
   return art;
 }
 
-// The hood's near wall and roof, painted over the print while it waits inside.
-function hoodFront(P) {
-  const art = new Art(FIG_LINES);
-  const [r0, r1] = SHARE.rail;
-  const wallH = SHARE.hood.top - SHARE.railTop;
-  art.solid(k.slabOf(box(SHARE.x0, SHARE.hood.x1, r0, r1, 0.3), SHARE.railTop, wallH, P, 2), {
-    tone: "mid",
-    inner: (a) => a.stroke(k.sideSeam(box(SHARE.x0, SHARE.hood.x1, r0, r1, 0.3), SHARE.railTop + 1.6, P, 2), "faint"),
+// The glass ring round the opening, the opening's inner walls where the viewer can see into it,
+// the rim of the glass and the camera dot. Painted over the screen, so it also hides the screen's
+// edge, which runs a little past the opening.
+function phoneBezel(P) {
+  const art = new Art(PHONE_LINES);
+  const slab = slabAlong(BODY, 0, PHONE.t, P);
+  art.fill(slab.front + facePath(OPEN, PHONE.t, P), "glass", { evenOdd: true });
+  const view = viewOf(P);
+  const deep = PHONE.t - PHONE.recess;
+  const count = OPEN.length;
+  const [cu, cv] = [0, PHONE.bezel + OPENING.h / 2];
+  const walls = [];
+  OPEN.forEach(([au, av], i) => {
+    const [bu, bv] = OPEN[(i + 1) % count];
+    const length = Math.hypot(bu - au, bv - av) || 1;
+    let [nu, nv] = [(bv - av) / length, -(bu - au) / length];
+    if (nu * (cu - (au + bu) / 2) + nv * (cv - (av + bv) / 2) < 0) [nu, nv] = [-nu, -nv];
+    if (dot3(add3(mul3(PF.u, nu), mul3(PF.v, nv)), view) <= 0) return;
+    walls.push(k.pathOf([[au, av, PHONE.t], [bu, bv, PHONE.t], [bu, bv, deep], [au, av, deep]].map((point) => k.iso(inPhone(point), P)), true));
   });
-  art.solid(k.slabOf(box(SHARE.hood.x1 - 0.8, SHARE.hood.x1 + 0.6, r0 - 0.4, r1 + 0.4, 0.3), SHARE.railTop, wallH, P, 2, 0.3), { tone: "mid" });
-  const top = SHARE.hood.top + SHARE.hood.roof;
-  art.solid(k.slabOf(ROOF, SHARE.hood.top, SHARE.hood.roof, P, 3, 0.3), {
-    tone: "mid",
-    inner: (a) => {
-      for (const x of [-72, -66, -60]) a.stroke(k.planOutline(box(x - 0.6, x + 0.6, -12, 12, 0.6), top, P, 2), "faint");
-    },
-  });
-  for (const [x, y] of byDepth(P)(k.corners(ROOF, 1.6))) screw(art, x, y, top, P);
+  art.fill(walls.join(""), "glassHi", { alpha: 0.55 });
+  art.stroke(facePath(OPEN, PHONE.t, P), "glassHi");
+  art.stroke(slab.crease, "glassHi");
+  art.stroke(slab.rim, "mid", PHONE_LINES.edge);
+  const lens = facePath(circleIn(0, CAMERA.v, CAMERA.r), deep, P);
+  art.fill(lens, "glass");
+  art.stroke(lens, "glassHi");
   return art;
 }
 
-function pasteFeed(P) {
-  const art = new Art(FIG_LINES);
-  const beamZ = PASTE.z - 2;
-  column(art, P, PASTE.column, beamZ);
-  art.solid(k.slabOf(box(-15, 15, PASTE.beam[0], PASTE.beam[1], 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
-  art.solid(k.slabOf(box(-12, 12, -28.6, CHUTE.outer.y, 0.4), beamZ, 2, P, 2, 0.3), { tone: "mid" });
-  const face = PASTE.plan.x + PASTE.plan.w;
-  const ticks = k.sideTicks(-80, -30, 2, 5, face, FEED_TOP, [0.9, 1.7], P, "y");
-  art.solid(k.slabOf(PASTE.plan, PASTE.z, FEED_TOP - PASTE.z, P, 3, 0.4), {
-    tone: "mid",
-    inner: (a) => {
-      for (const x of [-8, 8]) a.stroke(k.planOutline(box(x - 0.6, x + 0.6, -79.4, -29, 0.6), FEED_TOP, P, 2), "faint");
-      a.stroke(ticks.minor, "lo", 0.35);
-      a.stroke(ticks.major, "mid", 0.4);
-    },
-  });
-  for (const [x, y] of byDepth(P)([[-13.4, -27.6], [13.4, -27.6]])) screw(art, x, y, FEED_TOP, P);
-  art.solid(k.slabOf(PASTE.stop, FEED_TOP, PASTE.stopH, P, 2, 0.4), { tone: "mid" });
-  for (const x of [-11, 11]) screw(art, x, PASTE.stop.y + PASTE.stop.d / 2, FEED_TOP + PASTE.stopH, P);
-  return art;
-}
-
-// The pusher at home against the end stop: a bar riding the table's slots, with a knurled knob.
-function pasteHand(P) {
-  const art = new Art(FIG_LINES);
-  const z = FEED_TOP + PASTE.pusherH;
-  art.solid(k.slabOf(PASTE.pusher, FEED_TOP, PASTE.pusherH, P, 3, 0.4), { tone: "mid" });
-  const [cx, cy] = KNOB_AT;
-  const { r, h } = PASTE.knob;
-  art.solid(k.cylinder(cx, cy, r + 0.6, z, 0.8, P, 32, 0.3), { tone: "mid" });
-  art.solid(k.cylinder(cx, cy, r, z + 0.8, h - 0.8, P, 36, 0.4), {
-    tone: "mid",
-    inner: (a) => {
-      a.stroke(k.knurl(cx, cy, r, z + 0.8, z + h, 28, P, 0.5), "lo", 0.35);
-      a.stroke(k.ring(cx, cy, r - 0.9, z + h, P, 28), "faint");
-    },
-  });
-  return art;
-}
-
-function tutorialChute(P) {
-  const art = new Art(FIG_LINES);
-  chuteBack(art, P);
-  return art;
-}
-
-// World moves the onboarding choreography uses, from the print's rest in the tray.
-const TUTORIAL = {
-  rise: FEED_TOP - REST_Z,
-  shareStart: SHARE.start,
-  pasteStart: PASTE.start,
-  pusherGap: PASTE.gap,
-  pusherStroke: PASTE.stroke,
-};
+// Where the screen lies: local x runs right and y down from the top-left corner of the opening,
+// in world units, in the plane set `recess` behind the glass.
+const SCREEN_DEEP = PHONE.t - PHONE.recess;
+const SCREEN_ORIGIN = k.iso(inPhone([-OPENING.w / 2, PHONE.bezel + OPENING.h, SCREEN_DEEP]), PP);
+const SCREEN_X = k.axisVector(PP, PF.u);
+const SCREEN_Y = k.axisVector(PP, mul3(PF.v, -1));
+const screenMatrix = () => `matrix(${[...SCREEN_X, ...SCREEN_Y, ...SCREEN_ORIGIN].map((value) => num(value)).join(" ")})`;
 
 // ---------------------------------------------------------------------------------------------
 // The mark: one print, terracotta face up, resting in a shallow tray. Anatomy's 40-part rule
@@ -670,28 +677,21 @@ for (const [name, art] of [["fig_tray_back", back], ["fig_tray_print", print], [
   write(join(RES, "drawable", `${name}.xml`), vectorXml([{ art, paint: attrPaint }], { width: FIG_W, height: FIG_H, viewport: [FIG_W, FIG_H] }));
 }
 
-// Painted in this order; FigureView moves `hand` and `print` and dims the two feeds.
-const tutorialLayers = [
-  ["base", tutorialBase(TP)],
-  ["share", shareFeed(TP)],
-  ["paste", pasteFeed(TP)],
-  ["hand", pasteHand(TP)],
-  ["chute", tutorialChute(TP)],
-  ["print", trayPrint(TP)],
-  ["front", trayFront(TP)],
-  ["hood", hoodFront(TP)],
+const phoneLayers = [
+  ["halo", phoneHalo(PP)],
+  ["body", phoneBody(PP)],
+  ["bezel", phoneBezel(PP)],
 ];
-for (const [name, art] of tutorialLayers) {
-  write(join(RES, "drawable", `fig_tutorial_${name}.xml`), vectorXml([{ art, paint: attrPaint }], { width: TUT_W, height: TUT_H, viewport: [TUT_W, TUT_H] }));
+for (const [name, art] of phoneLayers) {
+  write(join(RES, "drawable", `fig_phone_${name}.xml`), vectorXml([{ art, paint: attrPaint }], { width: PHONE_VW, height: PHONE_VH, viewport: [PHONE_VW, PHONE_VH] }));
 }
 
-// The choreography lives in Java (ui/TutorialFigure.java); it reads the viewport and the world
-// moves from here, so the drawing and the motion cannot drift apart.
+// TutorialFigure reads the camera, the phone's rest pose and its screen from here.
 const fixed = (value) => {
   const text = (Math.round(value * 10000) / 10000).toString();
   return `${text === "-0" ? "0" : text}${text.includes(".") ? "" : ".0"}f`;
 };
-const vector = (axis) => `{${k.axisVector(TP, axis).map(fixed).join(", ")}}`;
+const pair = (values) => `{${values.map(fixed).join(", ")}}`;
 const [dropX, dropY] = START_OFFSET.map((value) => -value);
 write(
   join(ROOT, "app/src/main/java/org/still/saver/ui/FigureGeometry.java"),
@@ -710,22 +710,33 @@ write(
     `  /** The tray print's travel from inside the chute to its rest, in viewport units. */`,
     `  public static final float TRAY_DROP_X = ${fixed(dropX)}, TRAY_DROP_Y = ${fixed(dropY)};`,
     ``,
-    `  /** drawable/fig_tutorial_*: viewport width. */`,
-    `  public static final float TUTORIAL_WIDTH = ${fixed(TUT_W)};`,
+    `  /** drawable/fig_phone_*: viewport width and height. */`,
+    `  public static final float PHONE_VIEW_W = ${fixed(PHONE_VW)}, PHONE_VIEW_H = ${fixed(PHONE_VH)};`,
     ``,
-    `  /** Screen offset of one world unit along x, y and z in the tutorial, in viewport units. */`,
-    `  public static final float[] TUTORIAL_X = ${vector([1, 0, 0])},`,
-    `      TUTORIAL_Y = ${vector([0, 1, 0])},`,
-    `      TUTORIAL_Z = ${vector([0, 0, 1])};`,
+    `  /** Viewport offset of one world unit along x, y and z, and where the world origin lies. */`,
+    `  public static final float[] WORLD_X = ${pair(k.axisVector(PP, [1, 0, 0]))},`,
+    `      WORLD_Y = ${pair(k.axisVector(PP, [0, 1, 0]))},`,
+    `      WORLD_Z = ${pair(k.axisVector(PP, [0, 0, 1]))},`,
+    `      WORLD_ORIGIN = ${pair(k.iso([0, 0, 0], PP))};`,
     ``,
-    `  /** Height of either feed above the print's rest on the stack. */`,
-    `  public static final float FEED_RISE = ${fixed(TUTORIAL.rise)};`,
+    `  /**`,
+    `   * The phone at rest: the plan direction its glass faces and its lean back from upright, in`,
+    `   * degrees, and the height of its bottom edge over the floor.`,
+    `   */`,
+    `  public static final float PHONE_FACING = ${fixed(PHONE.facing)}, PHONE_TILT = ${fixed(PHONE.tilt)}, PHONE_FLOAT = ${fixed(PHONE.float)};`,
     ``,
-    `  /** Print centre x where it waits inside the hood, and y where it lies on the feed table. */`,
-    `  public static final float SHARE_START = ${fixed(TUTORIAL.shareStart)}, PASTE_START = ${fixed(TUTORIAL.pasteStart)};`,
+    `  /** The phone's height and thickness. */`,
+    `  public static final float PHONE_H = ${fixed(PHONE.h)}, PHONE_T = ${fixed(PHONE.t)};`,
     ``,
-    `  /** Gap between the pusher at home and the print, and the pusher's full stroke, along y. */`,
-    `  public static final float PUSHER_GAP = ${fixed(TUTORIAL.pusherGap)}, PUSHER_STROKE = ${fixed(TUTORIAL.pusherStroke)};`,
+    `  /**`,
+    `   * The screen opening: width, height and corner radius, its bottom edge above the phone's, and`,
+    `   * the depth of the screen behind the glass.`,
+    `   */`,
+    `  public static final float SCREEN_W = ${fixed(OPENING.w)}, SCREEN_H = ${fixed(OPENING.h)}, SCREEN_R = ${fixed(OPENING.r)},`,
+    `      SCREEN_BOTTOM = ${fixed(PHONE.bezel)}, SCREEN_RECESS = ${fixed(PHONE.recess)};`,
+    ``,
+    `  /** The halo's centre, in viewport units. */`,
+    `  public static final float[] HALO = ${pair(k.iso([...HALO_AT, 0], PP))};`,
     `}`,
     ``,
   ].join("\n"),
@@ -850,45 +861,45 @@ for (const [name, tones] of Object.entries(THEMES)) {
   write(join(OUT, `fig_tray-${name}.svg`), svgDoc(FIG_W * 3 + GAP * 2, FIG_H, defs + frames, tones.paper));
 }
 
-// Moments of the three onboarding steps: shared (the print leaving the hood, then riding the
-// rollers), pasted (laid on the table, then pushed to the lip) and saved (dropping, at rest).
-// A dimmed feed is washed toward the paper, as FigureView does with a colour filter: set aside
-// while the other feed plays, or behind once the print has landed. TutorialFigure uses the same
-// strengths; light linework on dark paper needs more wash to step back as far.
-const WASH = { light: { aside: 0.6, behind: 0.45 }, dark: { aside: 0.75, behind: 0.6 } };
-const TUTORIAL_FRAMES = [
-  { print: [SHARE.start + 12, 0, TUTORIAL.rise], dims: [null, "aside"] },
-  { print: [-34, 0, TUTORIAL.rise], dims: [null, "aside"] },
-  { print: [0, 0, TUTORIAL.rise * 0.55], dims: [null, "aside"] },
-  { print: [0, PASTE.start, TUTORIAL.rise], hand: PASTE.gap, dims: ["aside", null] },
-  { print: [0, -4, TUTORIAL.rise], hand: PASTE.stroke, dims: ["aside", null] },
-  { print: [0, 0, 0], dims: ["behind", "behind"] },
-];
+// The phone at rest in both themes, with a stand-in screen drawn in the exported plane: a post
+// with its media block, and Still's sheet risen over it. TutorialFigure draws the real screens.
+const MOCK = {
+  light: { bg: "#FFFFFF", rule: "#D2D2D2", strong: "#4A4A4A", sheet: "#FFFFFF", ink: "#141413", onInk: "#FAF9F5", scrim: "#14141366" },
+  dark: { bg: "#151515", rule: "#4A4A4A", strong: "#BDBDBD", sheet: "#262624", ink: "#FAF9F5", onInk: "#1F1E1D", scrim: "#00000099" },
+};
+function mockScreen(tones, sheet) {
+  const m = MOCK[tones === THEMES.light ? "light" : "dark"];
+  const [sw, sh] = [OPENING.w, OPENING.h];
+  const rule = (x, y, w, h, fill) => `<rect x="${num(x)}" y="${num(y - h / 2)}" width="${num(w)}" height="${num(h)}" rx="${num(h / 2)}" fill="${fill}"/>`;
+  const parts = [
+    `<rect x="-1" y="-1" width="${num(sw + 2)}" height="${num(sh + 2)}" rx="${num(OPENING.r + 1)}" fill="${m.bg}"/>`,
+    `<circle cx="8" cy="15" r="3.6" fill="${m.rule}"/>`,
+    rule(14, 13.6, 18, 1.6, m.strong),
+    rule(14, 17, 11, 1.2, m.rule),
+    `<rect x="4" y="23" width="${num(sw - 8)}" height="52" rx="2.2" fill="${tones.lit}"/>`,
+    rule(4, 81, 40, 1.2, m.rule),
+    `<circle cx="${num(sw - 7)}" cy="89" r="2.4" fill="none" stroke="${m.strong}" stroke-width="0.7"/>`,
+  ];
+  if (sheet) {
+    const top = sh - 58;
+    parts.push(
+      `<rect x="-1" y="-1" width="${num(sw + 2)}" height="${num(sh + 2)}" fill="${svgColour(m.scrim)[0]}" fill-opacity="${num(svgColour(m.scrim)[1])}"/>`,
+      `<path d="M-1 ${top + 5}a5 5 0 0 1 5 -5H${num(sw - 3)}a5 5 0 0 1 5 5V${num(sh - OPENING.r)}a${num(OPENING.r + 1)} ${num(OPENING.r + 1)} 0 0 1 ${num(-OPENING.r - 1)} ${num(OPENING.r + 1)}H${num(OPENING.r)}a${num(OPENING.r + 1)} ${num(OPENING.r + 1)} 0 0 1 ${num(-OPENING.r - 1)} ${num(-OPENING.r - 1)}Z" fill="${m.sheet}"/>`,
+      rule(sw / 2 - 4, top + 3, 8, 1, m.rule),
+      `<rect x="4.5" y="${top + 9}" width="22" height="27" rx="1.8" fill="${tones.lit}"/>`,
+      `<rect x="4.5" y="${top + 42}" width="${num(sw - 9)}" height="8" rx="4" fill="${m.ink}"/>`,
+    );
+  }
+  return `<g transform="${screenMatrix()}">${parts.join("")}</g>`;
+}
 for (const [name, tones] of Object.entries(THEMES)) {
   gradientId = 0;
-  const layer = Object.fromEntries(tutorialLayers.map(([key, art]) => [key, svgOps(art, tones)]));
-  const filters = Object.entries(WASH[name])
-    .map(([role, dim]) => `<filter id="${role}"><feFlood flood-color="${tones.paper}" flood-opacity="${dim}"/><feComposite in2="SourceGraphic" operator="atop"/></filter>`)
-    .join("");
-  const defs = `<defs>${filters}${Object.entries(layer).map(([key, svg]) => `<g id="t-${key}">${svg}</g>`).join("")}</defs>`;
-  const use = (key, { dim = null, move = [0, 0] } = {}) =>
-    `<use href="#t-${key}"${move[0] || move[1] ? ` transform="translate(${num(move[0])} ${num(move[1])})"` : ""}${dim ? ` filter="url(#${dim})"` : ""}/>`;
-  const frames = TUTORIAL_FRAMES.map(({ print: at, hand = 0, dims: [share, paste] }, index) => {
-    const [x, y] = [(index % 3) * (TUT_W + GAP), Math.floor(index / 3) * (TUT_H + GAP)];
-    return [
-      `<g transform="translate(${x} ${y})">`,
-      use("base"),
-      use("share", { dim: share }),
-      use("paste", { dim: paste }),
-      use("hand", { dim: paste, move: k.axisVector(TP, [0, hand, 0]) }),
-      use("chute"),
-      use("print", { move: k.axisVector(TP, at) }),
-      use("front"),
-      use("hood", { dim: share }),
-      `</g>`,
-    ].join("");
-  }).join("");
-  write(join(OUT, `fig_tutorial-${name}.svg`), svgDoc(TUT_W * 3 + GAP * 2, TUT_H * 2 + GAP, defs + frames, tones.paper));
+  const layer = Object.fromEntries(phoneLayers.map(([key, art]) => [key, svgOps(art, tones)]));
+  const frames = [null, false, true].map((screen, index) => {
+    const content = screen === null ? "" : mockScreen(tones, screen);
+    return `<g transform="translate(${index * (PHONE_VW + GAP)} 0)">${layer.halo}${layer.body}${content}${layer.bezel}</g>`;
+  });
+  write(join(OUT, `fig_phone-${name}.svg`), svgDoc(PHONE_VW * 3 + GAP * 2, PHONE_VH, frames.join(""), tones.paper));
 }
 
 function iconSheet() {
@@ -909,3 +920,4 @@ console.log(
   `figure: viewport ${FIG_W} x ${FIG_H}, print travel start -> rest (${num(travelX)}, ${num(travelY)}) viewport units` +
     `, ${back.ops.length + print.ops.length + front.ops.length} paths before merging`,
 );
+console.log(`phone: viewport ${PHONE_VW} x ${PHONE_VH}, screen ${num(OPENING.w)} x ${num(OPENING.h)} world units`);

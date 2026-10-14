@@ -15,4 +15,6 @@
     <attr name="figLit" format="color" />
     <attr name="figLitEdge" format="color" />
     <attr name="figHalo" format="color" />
+    <attr name="figGlass" format="color" />
+    <attr name="figGlassHi" format="color" />
 </resources>

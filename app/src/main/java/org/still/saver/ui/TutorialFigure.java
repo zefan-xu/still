@@ -1,176 +1,341 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.still.saver.ui;
 
-import static org.still.saver.ui.FigureGeometry.FEED_RISE;
-import static org.still.saver.ui.FigureGeometry.PASTE_START;
-import static org.still.saver.ui.FigureGeometry.PUSHER_GAP;
-import static org.still.saver.ui.FigureGeometry.PUSHER_STROKE;
-import static org.still.saver.ui.FigureGeometry.SHARE_START;
-import static org.still.saver.ui.FigureGeometry.TUTORIAL_X;
-import static org.still.saver.ui.FigureGeometry.TUTORIAL_Y;
-import static org.still.saver.ui.FigureGeometry.TUTORIAL_Z;
+import static org.still.saver.ui.FigureGeometry.PHONE_FACING;
+import static org.still.saver.ui.FigureGeometry.PHONE_FLOAT;
+import static org.still.saver.ui.FigureGeometry.PHONE_H;
+import static org.still.saver.ui.FigureGeometry.PHONE_T;
+import static org.still.saver.ui.FigureGeometry.PHONE_TILT;
+import static org.still.saver.ui.FigureGeometry.PHONE_VIEW_H;
+import static org.still.saver.ui.FigureGeometry.PHONE_VIEW_W;
+import static org.still.saver.ui.FigureGeometry.SCREEN_BOTTOM;
+import static org.still.saver.ui.FigureGeometry.SCREEN_H;
+import static org.still.saver.ui.FigureGeometry.SCREEN_R;
+import static org.still.saver.ui.FigureGeometry.SCREEN_RECESS;
+import static org.still.saver.ui.FigureGeometry.SCREEN_W;
+import static org.still.saver.ui.FigureGeometry.WORLD_ORIGIN;
+import static org.still.saver.ui.FigureGeometry.WORLD_X;
+import static org.still.saver.ui.FigureGeometry.WORLD_Y;
+import static org.still.saver.ui.FigureGeometry.WORLD_Z;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
 import org.still.saver.R;
 
 /**
- * The onboarding figure: the empty state's tray and chute, fed from two sides. A print shared
- * from another app rolls out of the covered conveyor on its own; a print you paste is laid on
- * the feed table and pushed in by hand. Either way it drops through the chute into the tray.
- * Each step plays one path and washes the other feed back toward the paper.
+ * The onboarding figure: an isometric phone floating over its halo, whose screen plays each step
+ * for real. A post in another app is shared to Still and saved from Still's sheet; a link is
+ * pasted into Still's field and saved; the photo drops into the library. The phone lifts and
+ * leans toward the viewer as a step begins, dips under each tap and turns a little between
+ * steps. A step plays, rests and plays again while on screen; a new step crossfades in; with
+ * animations off each step holds one frame that tells its story.
+ *
+ * <p>The body and bezel are generated drawables (tools/figures/build.mjs) at the phone's rest
+ * pose. Each frame the phone's face plane is projected at its current pose, and the drawables
+ * follow the map from the rest face to that one, which is exact on the glass and within a
+ * fraction of a unit elsewhere for these small moves.
  */
-public final class TutorialFigure {
+public final class TutorialFigure extends View {
   public static final int SHARE = 0, PASTE = 1, SAVED = 2, STEPS = 3;
 
-  /** Indices into the layers in painting order (see the constructor). */
-  private static final int SHARE_FEED = 1, PASTE_FEED = 2, HAND = 3, PRINT = 5, HOOD = 7;
-  private static final float DROP_SECONDS = 0.15f, PLACE_SECONDS = 0.12f, PLACE_RISE = 4;
-  private static final long TOUR_MS = 2600;
-
   private static final String[] DESCRIPTIONS = {
-    "A print rolls out of a covered conveyor on the left, slides over the chute and drops into"
-        + " the tray.",
-    "A print is laid on the feed table on the right, pushed into the chute by hand and dropped"
-        + " into the tray.",
-    "A print drops from the chute onto the stack in the tray, where everything you save"
-        + " collects.",
+    "A phone shows a post in another app. A tap on Share opens the share sheet, a tap on Still"
+        + " opens Still's sheet over the post, and a tap on Save saves the photo.",
+    "A phone shows Still's home screen. A tap on Paste puts a link in the field, a tap on the"
+        + " arrow opens the photo in a sheet, and a tap on Save saves it.",
+    "A phone shows Still's library, where the saved photo drops in as the newest tile.",
   };
 
-  private final FigureView view;
-  private final FigureView.Clip[] clips;
+  /** Turn of the phone on each step, in degrees from its rest pose. */
+  private static final float[] TURNS = {0, -4, 3};
+
+  private static final float LIFT = 4.5f, LEAN = 3.5f, DIP = 1.1f;
+  private static final float TURN_SECONDS = 0.3f, FADE_TAU = 0.09f;
+
+  private final Drawable halo, body, bezel;
+  private final TutorialScreens screens;
+  private final Motion.Loop loop = new Motion.Loop(this, this::step);
+  private final Runnable again = this::replay;
+  private final Motion.State turn = new Motion.State(0);
+  private final Matrix fit = new Matrix(), rest = new Matrix(), face = new Matrix();
+  private final Matrix screen = new Matrix(), follow = new Matrix();
+  private final float[] values = new float[9];
+  private final float[] u = new float[3], v = new float[3], w = new float[3], o = new float[3];
+  private final Path opening = new Path();
+  private final RectF bounds = new RectF(-1, -1, SCREEN_W + 1, SCREEN_H + 1);
+  private int step = -1, from = -1;
+  private float age, fromAge, fade = 1;
+  private boolean visible;
 
   public TutorialFigure(Context context) {
+    super(context);
     Resources.Theme theme = context.getTheme();
-    int[] ids = {
-      R.drawable.fig_tutorial_base,
-      R.drawable.fig_tutorial_share,
-      R.drawable.fig_tutorial_paste,
-      R.drawable.fig_tutorial_hand,
-      R.drawable.fig_tutorial_chute,
-      R.drawable.fig_tutorial_print,
-      R.drawable.fig_tutorial_front,
-      R.drawable.fig_tutorial_hood,
-    };
-    Drawable[] layers = new Drawable[ids.length];
-    for (int i = 0; i < ids.length; i++) layers[i] = theme.getDrawable(ids[i]);
-    view = new FigureView(context, FigureGeometry.TUTORIAL_WIDTH, layers);
-    view.setLifted(PRINT);
-    view.setTour(TOUR_MS);
-    view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-    // Light linework on dark paper loses less to the same wash, so it needs more to step back.
-    boolean dark = Theme.resolve(context).dark;
-    float aside = dark ? 0.75f : 0.6f, behind = dark ? 0.6f : 0.45f;
-    clips = new FigureView.Clip[] {shared(aside), pasted(aside), saved(behind)};
+    halo = theme.getDrawable(R.drawable.fig_phone_halo).mutate();
+    body = theme.getDrawable(R.drawable.fig_phone_body).mutate();
+    bezel = theme.getDrawable(R.drawable.fig_phone_bezel).mutate();
+    screens = new TutorialScreens(context, Theme.resolve(context));
+    int width = 1000, height = Math.round(width * PHONE_VIEW_H / PHONE_VIEW_W);
+    for (Drawable layer : new Drawable[] {halo, body, bezel}) layer.setBounds(0, 0, width, height);
+    opening.addRoundRect(bounds, SCREEN_R + 1, SCREEN_R + 1, Path.Direction.CW);
+    pose(0, 0, 0, 0);
+    faceMatrix(rest);
+    setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
+    setOnClickListener(view -> replay());
   }
 
-  public FigureView view() {
-    return view;
+  public void show(int to) {
+    if (to == step) return;
+    setContentDescription(DESCRIPTIONS[to]);
+    removeCallbacks(again);
+    boolean calm = Motion.calm(getContext());
+    if (step < 0 || !isAttachedToWindow() || calm) {
+      step = to;
+      from = -1;
+      fade = 1;
+      age = calm || !isAttachedToWindow() ? screens.still(to) : 0;
+      turn.x = TURNS[to];
+      turn.v = 0;
+      invalidate();
+      if (isAttachedToWindow() && !calm) loop.start();
+      return;
+    }
+    from = step;
+    fromAge = age;
+    fade = 0;
+    step = to;
+    age = 0;
+    loop.start();
   }
 
-  public void show(int step) {
-    view.setContentDescription(DESCRIPTIONS[step]);
-    view.setClip(clips[step]);
+  /** Plays the step again, from a crossfade, once it has finished. */
+  private void replay() {
+    removeCallbacks(again);
+    if (step < 0 || Motion.calm(getContext()) || loop.running() || age < screens.seconds(step)) return;
+    from = step;
+    fromAge = Motion.END;
+    fade = 0;
+    age = 0;
+    loop.start();
   }
 
-  /** Moves {@code layer} by a world vector from where it is drawn. */
-  private static void at(FigureView.Pose pose, int layer, float x, float y, float z) {
-    pose.move(
-        layer,
-        x * TUTORIAL_X[0] + y * TUTORIAL_Y[0] + z * TUTORIAL_Z[0],
-        x * TUTORIAL_X[1] + y * TUTORIAL_Y[1] + z * TUTORIAL_Z[1]);
+  private boolean step(float dt, boolean calm) {
+    if (step < 0) return false;
+    if (calm) {
+      from = -1;
+      fade = 1;
+      age = screens.still(step);
+      turn.x = TURNS[step];
+      turn.v = 0;
+      invalidate();
+      return false;
+    }
+    age += dt;
+    fade = Motion.follow(fade, 1, dt, FADE_TAU, false);
+    if (fade >= 1) from = -1;
+    boolean moving = Motion.settle(turn, TURNS[step], dt, TURN_SECONDS, false);
+    moving |= age < screens.seconds(step) || from >= 0;
+    invalidate();
+    if (!moving && visible) {
+      removeCallbacks(again);
+      postDelayed(again, screens.rest(step));
+    }
+    return moving;
   }
 
-  /** The print falls from either feed's height to its rest on the stack. */
-  private static float fall(float age, float from) {
-    return FEED_RISE * (1 - Motion.settled(age - from, DROP_SECONDS));
+  /** Rises from 0 as the step begins and settles back: the lift and lean that open a step. */
+  private static float rising(float age) {
+    return Motion.settled(age, 0.16f) * (1 - Motion.settled(age - 0.5f, 0.22f));
   }
 
-  /** Out of the hood, along the rollers to the middle of the chute, then down into the tray. */
-  private static FigureView.Clip shared(float aside) {
-    float slideFrom = 0.35f, slideTo = 2.35f, dropAt = 2.5f;
-    return new FigureView.Clip() {
-      @Override
-      public float seconds() {
-        return dropAt + 12 * DROP_SECONDS;
-      }
+  @Override
+  protected void onAttachedToWindow() {
+    super.onAttachedToWindow();
+    if (step < 0) return;
+    from = -1;
+    fade = 1;
+    if (Motion.calm(getContext())) {
+      age = screens.still(step);
+      invalidate();
+      return;
+    }
+    age = 0;
+    loop.start();
+  }
 
-      @Override
-      public float still() {
-        return 1.3f;
-      }
+  @Override
+  protected void onDetachedFromWindow() {
+    removeCallbacks(again);
+    loop.finish();
+    super.onDetachedFromWindow();
+  }
 
-      @Override
-      public void pose(float age, FigureView.Pose pose) {
-        float slide = Motion.smooth(slideFrom, slideTo, age);
-        at(pose, PRINT, SHARE_START * (1 - slide), 0, fall(age, dropAt));
-        pose.alpha(PRINT, Motion.smooth(0, 0.4f, age));
-        pose.dim(PASTE_FEED, aside);
-        pose.dim(HAND, aside);
-      }
-    };
+  @Override
+  public void onVisibilityAggregated(boolean isVisible) {
+    super.onVisibilityAggregated(isVisible);
+    visible = isVisible;
+    if (!isVisible) removeCallbacks(again);
+    else if (!loop.running() && step >= 0 && age >= screens.seconds(step)) postDelayed(again, screens.rest(step));
+  }
+
+  @Override
+  public CharSequence getAccessibilityClassName() {
+    return "android.widget.ImageView";
+  }
+
+  /** Tapping replays the motion; screen readers get the description as a picture, not a button. */
+  @Override
+  public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+    super.onInitializeAccessibilityNodeInfo(info);
+    info.setClickable(false);
+    info.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+  }
+
+  @Override
+  protected void onMeasure(int widthSpec, int heightSpec) {
+    int width = resolveSize(Math.round(PHONE_VIEW_W * getResources().getDisplayMetrics().density), widthSpec);
+    int height = resolveSize(Math.round(width * PHONE_VIEW_H / PHONE_VIEW_W), heightSpec);
+    setMeasuredDimension(width, height);
+  }
+
+  @Override
+  protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+    super.onSizeChanged(w, h, oldw, oldh);
+    float aw = w - getPaddingLeft() - getPaddingRight();
+    float ah = h - getPaddingTop() - getPaddingBottom();
+    float scale = Math.max(0, Math.min(aw / PHONE_VIEW_W, ah / PHONE_VIEW_H));
+    fit.setScale(scale, scale);
+    fit.postTranslate(
+        getPaddingLeft() + (aw - PHONE_VIEW_W * scale) / 2,
+        getPaddingTop() + (ah - PHONE_VIEW_H * scale) / 2);
+  }
+
+  @Override
+  protected void onDraw(Canvas canvas) {
+    if (step < 0) return;
+    boolean calm = Motion.calm(getContext());
+    float rise = blend(calm ? 0 : rising(age), from >= 0 ? rising(fromAge) : 0);
+    float press = blend(calm ? 0 : screens.press(step, age), from >= 0 ? screens.press(from, fromAge) : 0);
+    pose(turn.x, LEAN * rise, LIFT * rise, DIP * Math.min(1, press));
+    faceMatrix(face);
+    rest.invert(follow);
+    follow.postConcat(face);
+
+    int base = canvas.save();
+    canvas.concat(fit);
+    canvas.scale(PHONE_VIEW_W / 1000, PHONE_VIEW_W / 1000);
+    int save = canvas.save();
+    float spread = 1 - 0.12f * rise;
+    float[] centre = FigureGeometry.HALO;
+    canvas.scale(spread, spread, centre[0] * 1000 / PHONE_VIEW_W, centre[1] * 1000 / PHONE_VIEW_W);
+    halo.setAlpha(Math.round(255 * (1 - 0.3f * rise)));
+    halo.draw(canvas);
+    canvas.restoreToCount(save);
+    canvas.restoreToCount(base);
+
+    drawLayer(canvas, body);
+    save = canvas.save();
+    canvas.concat(fit);
+    screenMatrix(screen);
+    canvas.concat(screen);
+    canvas.clipPath(opening);
+    if (from >= 0) screens.draw(canvas, from, fromAge, calm);
+    if (from >= 0) canvas.saveLayerAlpha(bounds, Math.round(255 * fade));
+    screens.draw(canvas, step, age, calm);
+    canvas.restoreToCount(save);
+    drawLayer(canvas, bezel);
+  }
+
+  /** Mixes the outgoing step's value into the new one's while they crossfade. */
+  private float blend(float now, float before) {
+    return from >= 0 ? before + (now - before) * fade : now;
+  }
+
+  private void drawLayer(Canvas canvas, Drawable layer) {
+    int save = canvas.save();
+    canvas.concat(fit);
+    canvas.concat(follow);
+    canvas.scale(PHONE_VIEW_W / 1000, PHONE_VIEW_W / 1000);
+    layer.draw(canvas);
+    canvas.restoreToCount(save);
   }
 
   /**
-   * Laid on the table, met by the pusher and shoved toward the lip; the pusher eases against its
-   * stop short of the lip while the print glides on, drops, and the pusher goes home.
+   * The phone's frame at a pose: u right along the screen, v up it, w out of the glass, and o
+   * the middle of the bottom edge of the back, in world units. It turns, leans and lifts about
+   * its own centre, and a dip pushes it back along w.
    */
-  private static FigureView.Clip pasted(float aside) {
-    float reachFrom = 0.7f, pushFrom = 1, pushTo = 2.6f, dropAt = 2.75f;
-    float homeFrom = 3, homeTo = 4.2f;
-    return new FigureView.Clip() {
-      @Override
-      public float seconds() {
-        return dropAt + 12 * DROP_SECONDS;
-      }
-
-      @Override
-      public float still() {
-        return 1.55f;
-      }
-
-      @Override
-      public void pose(float age, FigureView.Pose pose) {
-        float travel = -PASTE_START * Motion.smooth(pushFrom, pushTo, age);
-        float lift = PLACE_RISE * (1 - Motion.settled(age, PLACE_SECONDS));
-        at(pose, PRINT, 0, PASTE_START + travel, fall(age, dropAt) + lift);
-        pose.alpha(PRINT, Motion.smooth(0, 0.3f, age));
-        float hand =
-            age < pushFrom
-                ? PUSHER_GAP * Motion.smooth(reachFrom, pushFrom, age)
-                : Motion.softMin(PUSHER_GAP + travel, PUSHER_STROKE, 1.2f);
-        at(pose, HAND, 0, hand * (1 - Motion.smooth(homeFrom, homeTo, age)), 0);
-        pose.dim(SHARE_FEED, aside);
-        pose.dim(HOOD, aside);
-      }
-    };
+  private void pose(float turnDegrees, float leanDegrees, float lift, float dip) {
+    frame(PHONE_FACING, PHONE_TILT);
+    float cx = PHONE_H / 2 * v[0] + PHONE_T / 2 * w[0];
+    float cy = PHONE_H / 2 * v[1] + PHONE_T / 2 * w[1];
+    float cz = PHONE_FLOAT + PHONE_H / 2 * v[2] + PHONE_T / 2 * w[2];
+    frame(PHONE_FACING + turnDegrees, PHONE_TILT - leanDegrees);
+    cz += lift;
+    for (int i = 0; i < 3; i++) {
+      float c = i == 0 ? cx : i == 1 ? cy : cz;
+      o[i] = c - dip * w[i] - PHONE_H / 2 * v[i] - PHONE_T / 2 * w[i];
+    }
   }
 
-  /** Waiting at the top of the chute, then down onto the stack; both feeds step back. */
-  private static FigureView.Clip saved(float behind) {
-    float dropAt = 0.7f;
-    return new FigureView.Clip() {
-      @Override
-      public float seconds() {
-        return dropAt + 12 * DROP_SECONDS;
-      }
+  private void frame(float facingDegrees, float tiltDegrees) {
+    double f = Math.toRadians(facingDegrees), t = Math.toRadians(tiltDegrees);
+    float nx = (float) Math.cos(f), ny = (float) Math.sin(f);
+    float st = (float) Math.sin(t), ct = (float) Math.cos(t);
+    u[0] = ny;
+    u[1] = -nx;
+    u[2] = 0;
+    v[0] = -nx * st;
+    v[1] = -ny * st;
+    v[2] = ct;
+    w[0] = nx * ct;
+    w[1] = ny * ct;
+    w[2] = st;
+  }
 
-      @Override
-      public float still() {
-        return Motion.END;
-      }
+  /** Maps the glass's face coordinates (u right, v up) into the viewport. */
+  private void faceMatrix(Matrix out) {
+    set(out, u, v, PHONE_T, 0, 0);
+  }
 
-      @Override
-      public void pose(float age, FigureView.Pose pose) {
-        at(pose, PRINT, 0, 0, fall(age, dropAt));
-        pose.alpha(PRINT, Motion.smooth(0, 0.35f, age));
-        pose.dim(SHARE_FEED, behind);
-        pose.dim(HOOD, behind);
-        pose.dim(PASTE_FEED, behind);
-        pose.dim(HAND, behind);
-      }
-    };
+  /** Maps screen coordinates (x right, y down from the opening's top-left) into the viewport. */
+  private void screenMatrix(Matrix out) {
+    set(out, u, v, PHONE_T - SCREEN_RECESS, -SCREEN_W / 2, SCREEN_BOTTOM + SCREEN_H);
+    values[1] = -values[1];
+    values[4] = -values[4];
+    out.setValues(values);
+  }
+
+  private void set(Matrix out, float[] a, float[] b, float depth, float a0, float b0) {
+    float px = WORLD_ORIGIN[0], py = WORLD_ORIGIN[1];
+    for (int i = 0; i < 3; i++) {
+      float at = o[i] + depth * w[i] + a0 * a[i] + b0 * b[i];
+      px += at * axis(i)[0];
+      py += at * axis(i)[1];
+    }
+    values[0] = project(a, 0);
+    values[1] = project(b, 0);
+    values[2] = px;
+    values[3] = project(a, 1);
+    values[4] = project(b, 1);
+    values[5] = py;
+    values[6] = 0;
+    values[7] = 0;
+    values[8] = 1;
+    out.setValues(values);
+  }
+
+  private static float[] axis(int i) {
+    return i == 0 ? WORLD_X : i == 1 ? WORLD_Y : WORLD_Z;
+  }
+
+  private static float project(float[] vector, int component) {
+    return vector[0] * WORLD_X[component] + vector[1] * WORLD_Y[component] + vector[2] * WORLD_Z[component];
   }
 }
