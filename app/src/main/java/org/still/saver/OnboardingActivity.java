@@ -86,7 +86,7 @@ public final class OnboardingActivity extends Activity {
     figure = new TutorialFigure(this);
     FrameLayout stage = new FrameLayout(this);
     stage.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(8));
-    stage.addView(figure.view(), new FrameLayout.LayoutParams(-1, -1));
+    stage.addView(figure, new FrameLayout.LayoutParams(-1, -1));
 
     // Every page is laid out at once, so the tallest sets the height and turning never reflows.
     FrameLayout stack = new FrameLayout(this);

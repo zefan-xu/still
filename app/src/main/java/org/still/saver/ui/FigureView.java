@@ -3,18 +3,14 @@ package org.still.saver.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
-import android.util.TypedValue;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
-import org.still.saver.R;
 
 /**
  * A figure painted from layers that share one viewport, back to front, scaled uniformly to fit.
  * A {@link Clip} poses the layers as a pure function of time: an offset and an opacity for the
- * parts that move, and a wash toward the paper for parts that step back. The clip plays when the
+ * parts that move. The clip plays when the
  * view attaches, replays a while after it ends and on tap, and holds its still frame when
  * animations are off. Before a replay or a new clip, the lifted layers fade out where they are
  * and the other moving parts glide back to the clip's opening pose, so nothing pops.
@@ -31,15 +27,14 @@ public final class FigureView extends View {
     void pose(float age, Pose pose);
   }
 
-  /** Each layer's offset in viewport units, opacity, and wash toward the paper from 0 to 1. */
+  /** Each layer's offset in viewport units and opacity. */
   public static final class Pose {
-    final float[] x, y, alpha, dim;
+    final float[] x, y, alpha;
 
     Pose(int layers) {
       x = new float[layers];
       y = new float[layers];
       alpha = new float[layers];
-      dim = new float[layers];
       reset();
     }
 
@@ -47,7 +42,6 @@ public final class FigureView extends View {
       java.util.Arrays.fill(x, 0);
       java.util.Arrays.fill(y, 0);
       java.util.Arrays.fill(alpha, 1);
-      java.util.Arrays.fill(dim, 0);
     }
 
     public void move(int layer, float dx, float dy) {
@@ -58,27 +52,18 @@ public final class FigureView extends View {
     public void alpha(int layer, float value) {
       alpha[layer] = value;
     }
-
-    public void dim(int layer, float value) {
-      dim[layer] = value;
-    }
   }
 
   private static final long TOUR_MS = 6000;
   private static final float DROP_SECONDS = 0.15f, LIFT_TAU = 0.05f, PARK_TAU = 0.08f;
-  private static final float DIM_SECONDS = 0.12f;
 
   private final Drawable[] layers;
   private final boolean[] lifted;
   private final float viewportWidth;
   private final Pose shown, next;
-  private final Motion.State[] dims;
-  private final int[] washes;
-  private final int paper;
   private final Motion.Loop loop = new Motion.Loop(this, this::step);
   private final Runnable tour = this::replay;
   private Clip clip, pending;
-  private long tourMs = TOUR_MS;
   private float age, lift = 1, unit;
   private boolean lifting, visible;
 
@@ -91,12 +76,6 @@ public final class FigureView extends View {
     lifted = new boolean[layers.length];
     shown = new Pose(layers.length);
     next = new Pose(layers.length);
-    dims = new Motion.State[layers.length];
-    for (int i = 0; i < layers.length; i++) dims[i] = new Motion.State(0);
-    washes = new int[layers.length];
-    TypedValue value = new TypedValue();
-    context.getTheme().resolveAttribute(R.attr.figPaper, value, true);
-    paper = value.data;
     setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     setOnClickListener(v -> replay());
   }
@@ -142,11 +121,6 @@ public final class FigureView extends View {
     for (int index : indices) lifted[index] = true;
   }
 
-  /** Pause between the end of the clip and its replay. */
-  public void setTour(long ms) {
-    tourMs = ms;
-  }
-
   /** Shows {@code value}, lifting the current pose away first while the view is animating. */
   public void setClip(Clip value) {
     if (value == clip && pending == null) return;
@@ -176,10 +150,6 @@ public final class FigureView extends View {
 
   private void settleNow(float at) {
     pose(clip, at, shown);
-    for (int i = 0; i < layers.length; i++) {
-      dims[i].x = shown.dim[i];
-      dims[i].v = 0;
-    }
     invalidate();
   }
 
@@ -206,7 +176,6 @@ public final class FigureView extends View {
       lift = Motion.follow(lift, 0, dt, LIFT_TAU, false);
       boolean parked = true;
       for (int i = 0; i < layers.length; i++) {
-        shown.dim[i] = next.dim[i];
         if (lifted[i]) continue;
         shown.x[i] = Motion.follow(shown.x[i], next.x[i], dt, PARK_TAU, false);
         shown.y[i] = Motion.follow(shown.y[i], next.y[i], dt, PARK_TAU, false);
@@ -227,8 +196,6 @@ public final class FigureView extends View {
       pose(clip, age >= clip.seconds() ? Motion.END : age, shown);
       moving = age < clip.seconds();
     }
-    for (int i = 0; i < layers.length; i++)
-      moving |= Motion.settle(dims[i], shown.dim[i], dt, DIM_SECONDS, false);
     invalidate();
     if (!moving) scheduleTour();
     return moving;
@@ -236,7 +203,7 @@ public final class FigureView extends View {
 
   private void scheduleTour() {
     removeCallbacks(tour);
-    if (visible && isAttachedToWindow() && !Motion.calm(getContext())) postDelayed(tour, tourMs);
+    if (visible && isAttachedToWindow() && !Motion.calm(getContext())) postDelayed(tour, TOUR_MS);
   }
 
   @Override
@@ -316,23 +283,10 @@ public final class FigureView extends View {
       if (alpha <= 0.004f) continue;
       Drawable layer = layers[i];
       layer.setAlpha(Math.round(255 * Math.min(1, alpha)));
-      wash(i, dims[i].x);
       int save = canvas.save();
       canvas.translate(shown.x[i] * unit, shown.y[i] * unit);
       layer.draw(canvas);
       canvas.restoreToCount(save);
     }
-  }
-
-  /** Mixes the paper over the layer's own pixels, keeping its coverage: a part stepping back. */
-  private void wash(int i, float dim) {
-    int alpha = Math.round(255 * Math.max(0, Math.min(1, dim)));
-    if (alpha == washes[i]) return;
-    washes[i] = alpha;
-    layers[i].setColorFilter(
-        alpha == 0
-            ? null
-            : new PorterDuffColorFilter(
-                (alpha << 24) | (paper & 0xffffff), PorterDuff.Mode.SRC_ATOP));
   }
 }

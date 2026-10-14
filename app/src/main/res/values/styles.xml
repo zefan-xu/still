@@ -25,6 +25,8 @@
         <item name="figLit">#D97757</item>
         <item name="figLitEdge">#C6613F</item>
         <item name="figHalo">#5C6B6656</item>
+        <item name="figGlass">#2B2A27</item>
+        <item name="figGlassHi">#6A6862</item>
         <!-- End of figure tones -->
     </style>
     <style name="AppTheme" parent="BaseAppTheme" />
@@ -52,6 +54,8 @@
         <item name="figLit">#D97757</item>
         <item name="figLitEdge">#E8977A</item>
         <item name="figHalo">#A6000000</item>
+        <item name="figGlass">#121110</item>
+        <item name="figGlassHi">#4A4844</item>
         <!-- End of figure tones -->
     </style>
     <style name="AppThemeDark" parent="BaseAppThemeDark" />
