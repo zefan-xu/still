@@ -91,7 +91,8 @@ public final class ShareActivity extends Activity implements SaveSession.Host {
                 ShareActivity.this.close();
               }
             });
-    sheet.show(view);
+    if (sheet.isShowing() && results.redraw()) sheet.update(view);
+    else sheet.show(view);
     sheet.setOnDismiss(this::close);
     if (s.phase() == SaveSession.Phase.ADDED) handler.postDelayed(autoClose, ADDED_DISMISS_MS);
   }

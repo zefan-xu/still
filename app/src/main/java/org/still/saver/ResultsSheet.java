@@ -10,9 +10,11 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import org.still.saver.core.Media;
+import org.still.saver.core.Platforms;
 import org.still.saver.core.Post;
 import org.still.saver.core.Variant;
 import org.still.saver.ui.Format;
+import org.still.saver.ui.Motion;
 import org.still.saver.ui.ProgressLine;
 import org.still.saver.ui.Sheet;
 import org.still.saver.ui.Thumbnails;
@@ -34,8 +36,10 @@ final class ResultsSheet {
   private final Ui ui;
   private final Sheet sheet;
   private final boolean share;
-  private int expanded = -1;
+  private int expanded = -1, toggled = -1;
   private Post shownPost;
+  private Object screen;
+  private boolean redraw;
 
   ResultsSheet(Ui ui, Sheet sheet, boolean share) {
     this.ui = ui;
@@ -48,16 +52,28 @@ final class ResultsSheet {
       shownPost = session.post();
       expanded = -1;
     }
-    switch (session.phase()) {
-      case LOOKING_UP:
-        return lookingUp(actions);
-      case ADDED:
-        return added(session, actions);
-      case ERROR:
-        return error(session, actions);
-      default:
-        return ready(session, actions);
+    Object next = session.phase() == SaveSession.Phase.READY ? session.post() : session.phase();
+    redraw = next == screen;
+    screen = next;
+    try {
+      switch (session.phase()) {
+        case LOOKING_UP:
+          return lookingUp(actions);
+        case ADDED:
+          return added(session, actions);
+        case ERROR:
+          return error(session, actions);
+        default:
+          return ready(session, actions);
+      }
+    } finally {
+      toggled = -1;
     }
+  }
+
+  /** True when the last build re-rendered the screen before it; show it with {@link Sheet#update}. */
+  boolean redraw() {
+    return redraw;
   }
 
   private View lookingUp(Actions actions) {
@@ -80,7 +96,18 @@ final class ResultsSheet {
     LinearLayout box = ui.column();
     box.setPadding(ui.dp(24), ui.dp(16), ui.dp(24), ui.dp(4));
     box.setGravity(Gravity.CENTER_HORIZONTAL);
-    box.addView(ui.icon(R.drawable.ic_check_circle, ui.theme.accentStrong, 44));
+    ImageView check = ui.icon(R.drawable.ic_check_circle, ui.theme.accentStrong, 44);
+    box.addView(check);
+    Motion.play(
+        check,
+        0.7f,
+        age -> {
+          float grow = age == Motion.END ? 1 : Motion.smooth(0, 0.12f, age);
+          float scale = 0.7f + 0.3f * grow + 0.1f * Motion.burst(age, 0.12f, 0.14f);
+          check.setAlpha(grow);
+          check.setScaleX(scale);
+          check.setScaleY(scale);
+        });
     ui.gap(box, 12);
     TextView title =
         ui.title(session.added() == 0 ? "Already downloading" : "Added to Still", 22);
@@ -107,6 +134,14 @@ final class ResultsSheet {
 
   private View error(SaveSession session, Actions actions) {
     LinearLayout box = sheet.frame("Couldn’t get this post", session.message());
+    if (!session.submitted().isEmpty() && Platforms.detect(session.submitted()) == null) {
+      TextView links =
+          ui.quietButton(
+              "See supported links", () -> sheet.replace(SupportedLinks.build(ui, sheet)));
+      LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+      params.setMarginStart(ui.dp(10));
+      box.addView(links, params);
+    }
     LinearLayout buttons = ui.row();
     buttons.setPadding(ui.dp(24), ui.dp(8), ui.dp(24), ui.dp(4));
     buttons.addView(ui.secondaryButton("Open Still", actions::openApp), new LinearLayout.LayoutParams(0, -2, 1));
@@ -217,13 +252,28 @@ final class ResultsSheet {
               28);
       check.setBackground(ui.shape(included ? 0xffffffff : 0x66000000, 14, 0));
       frame.addView(check, corner(Gravity.TOP | Gravity.END));
-      if (!included) preview.setAlpha(0.45f);
+      float dim = included ? 1 : 0.45f;
+      if (index == toggled) {
+        new Motion.Value(preview, included ? 0.45f : 1, 0.1f, preview::setAlpha).to(dim);
+        Motion.play(
+            check,
+            0.6f,
+            age -> {
+              float scale = 1 + 0.16f * Motion.burst(age, 0.06f, 0.12f);
+              check.setScaleX(scale);
+              check.setScaleY(scale);
+            });
+      } else preview.setAlpha(dim);
       frame.setContentDescription("Include media " + (index + 1) + ", " + name);
       frame.setFocusable(true);
       frame.setClickable(true);
       frame.setSelected(included);
       frame.setForeground(ui.ripple(null, ui.shape(ui.theme.ink, 16, 0)));
-      frame.setOnClickListener(v -> session.toggle(index));
+      frame.setOnClickListener(
+          v -> {
+            toggled = index;
+            session.toggle(index);
+          });
     } else frame.setContentDescription(name);
     return frame;
   }

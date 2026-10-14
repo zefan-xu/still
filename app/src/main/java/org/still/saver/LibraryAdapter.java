@@ -15,10 +15,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.still.saver.core.Platforms;
+import org.still.saver.ui.FigureView;
 import org.still.saver.ui.Format;
 import org.still.saver.ui.LibraryModel;
+import org.still.saver.ui.Motion;
 import org.still.saver.ui.ProgressLine;
 import org.still.saver.ui.Thumbnails;
 import org.still.saver.ui.Ui;
@@ -39,6 +44,8 @@ final class LibraryAdapter extends BaseAdapter {
     void cancelGif();
 
     void dismissGif();
+
+    void supportedLinks();
   }
 
   private final Ui ui;
@@ -46,6 +53,10 @@ final class LibraryAdapter extends BaseAdapter {
   private List<LibraryModel.Row> rows = Collections.emptyList();
   private Map<String, DownloadStore.Entry> entries = new HashMap<>();
   private String signature = "";
+  /** Saved keys already on screen once; only keys saved later get an entrance. */
+  private final Set<String> seen = new HashSet<>(), fresh = new HashSet<>();
+  private boolean primed;
+  private final Map<String, ProgressLine> lines = new HashMap<>();
 
   LibraryAdapter(Ui ui, Callbacks callbacks) {
     this.ui = ui;
@@ -54,9 +65,17 @@ final class LibraryAdapter extends BaseAdapter {
 
   /** Returns true when the visible content changed. */
   boolean update(List<LibraryModel.Row> next, Map<String, DownloadStore.Entry> byKey) {
+    for (DownloadStore.Entry e : byKey.values())
+      if (EntryActions.saved(e) && seen.add(e.key) && primed) fresh.add(e.key);
+    fresh.retainAll(byKey.keySet());
+    primed = true;
     String nextSignature = LibraryModel.signature(next);
     entries = byKey;
     if (nextSignature.equals(signature)) return false;
+    Set<String> working = new HashSet<>();
+    for (LibraryModel.Row row : next)
+      if (row.type == LibraryModel.Type.PROGRESS) working.add(row.item().key);
+    lines.keySet().retainAll(working);
     rows = next;
     signature = nextSignature;
     notifyDataSetChanged();
@@ -111,7 +130,7 @@ final class LibraryAdapter extends BaseAdapter {
       case LIST:
         return listRow(row.item());
       default:
-        return empty(row.text);
+        return empty(row.text, convert);
     }
   }
 
@@ -121,27 +140,53 @@ final class LibraryAdapter extends BaseAdapter {
     return view;
   }
 
-  private View empty(String kind) {
+  /**
+   * The library's empty state, with the tray figure above the headline. A recycled view of the
+   * same kind is returned as is, so a list refresh does not replay the figure's drop.
+   */
+  private View empty(String kind, View convert) {
+    if (convert != null && kind.equals(convert.getTag())) return convert;
     LinearLayout box = ui.column();
-    box.setPadding(ui.dp(24), ui.dp(48), ui.dp(24), ui.dp(24));
+    box.setTag(kind);
     if (LibraryModel.EMPTY_SEARCH.equals(kind)) {
+      box.setPadding(ui.dp(24), ui.dp(40), ui.dp(24), ui.dp(24));
       box.addView(ui.title("No files match this search.", 20));
       return box;
     }
+    box.setPadding(ui.dp(24), ui.dp(16), ui.dp(24), ui.dp(24));
+    FigureView figure =
+        new FigureView(
+            ui.activity,
+            ui.activity.getTheme().getDrawable(R.drawable.fig_tray_back),
+            ui.activity.getTheme().getDrawable(R.drawable.fig_tray_print),
+            ui.activity.getTheme().getDrawable(R.drawable.fig_tray_front),
+            240,
+            0,
+            57.03f);
+    LinearLayout.LayoutParams figureParams = new LinearLayout.LayoutParams(ui.dp(220), ui.dp(214));
+    figureParams.gravity = Gravity.CENTER_HORIZONTAL;
+    box.addView(figure, 0, figureParams);
+    ui.gap(box, 12);
     box.addView(ui.display("Nothing saved yet."));
     ui.gap(box, 10);
     box.addView(ui.secondary("Share a post to Still from any app, or paste a link above."));
     ui.gap(box, 18);
     box.addView(
         ui.caption(
-            "Works with public posts on X, Instagram, TikTok, Facebook, Pinterest, Threads and"
-                + " Bluesky. Files stay on this device."));
+            "Works with public posts on "
+                + Platforms.names("and")
+                + ". Files stay on this device."));
+    ui.gap(box, 6);
+    TextView links = ui.quietButton("See supported links", callbacks::supportedLinks);
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+    params.setMarginStart(-ui.dp(14));
+    box.addView(links, params);
     return box;
   }
 
   private FrameLayout thumb(int sizeDp, String mime) {
     FrameLayout frame = new FrameLayout(ui.activity);
-    frame.setBackground(ui.shape(ui.theme.raised, 12, 0));
+    frame.setBackground(ui.shape(ui.theme.raised, Ui.TILE_RADIUS, 0));
     frame.setClipToOutline(true);
     ImageView glyph = ui.icon(glyph(mime), ui.theme.tertiary, 22);
     frame.addView(glyph, new FrameLayout.LayoutParams(ui.dp(22), ui.dp(22), Gravity.CENTER));
@@ -182,7 +227,9 @@ final class LibraryAdapter extends BaseAdapter {
     if (item.state == LibraryModel.State.ACTIVE) {
       ui.gap(texts, 8);
       ProgressLine line = new ProgressLine(ui.activity, ui.theme);
+      line.continueFrom(lines.get(item.key));
       line.setProgress(item.progress);
+      lines.put(item.key, line);
       texts.addView(line, new LinearLayout.LayoutParams(-1, ui.dp(3)));
     }
     ui.gap(texts, 6);
@@ -227,6 +274,33 @@ final class LibraryAdapter extends BaseAdapter {
     final ImageView[] images = new ImageView[COLUMNS];
     final ImageView[] glyphs = new ImageView[COLUMNS];
     final TextView[] badges = new TextView[COLUMNS];
+    final Motion.Loop[] entrances = new Motion.Loop[COLUMNS];
+    final String[] keys = new String[COLUMNS];
+  }
+
+  /**
+   * A newly saved tile fades and grows in once. Rebinding the same tile lets its entrance run
+   * on; binding another item puts the cell at rest first.
+   */
+  private void enter(GridHolder holder, int i, String key, boolean fresh) {
+    Motion.Loop running = holder.entrances[i];
+    boolean same = key != null && key.equals(holder.keys[i]);
+    holder.keys[i] = key;
+    if (running != null && running.running() && same && !fresh) return;
+    if (running != null) running.finish();
+    holder.entrances[i] = null;
+    if (!fresh) return;
+    Square cell = holder.cells[i];
+    holder.entrances[i] =
+        Motion.play(
+            cell,
+            0.6f,
+            age -> {
+              float p = age == Motion.END ? 1 : Motion.smooth(0, 0.32f, age);
+              cell.setAlpha(p);
+              cell.setScaleX(0.94f + 0.06f * p);
+              cell.setScaleY(0.94f + 0.06f * p);
+            });
   }
 
   private View grid(LibraryModel.Row row, View convert) {
@@ -237,11 +311,11 @@ final class LibraryAdapter extends BaseAdapter {
       holder = (GridHolder) convert.getTag();
     } else {
       line = ui.row();
-      line.setPadding(ui.dp(20), 0, ui.dp(20), ui.dp(4));
+      line.setPadding(ui.dp(22), 0, ui.dp(22), 0);
       holder = new GridHolder();
       for (int i = 0; i < COLUMNS; i++) {
         Square cell = new Square(ui.activity);
-        cell.setBackground(ui.shape(ui.theme.raised, 10, 0));
+        cell.setBackground(ui.shape(ui.theme.raised, Ui.TILE_RADIUS, 0));
         cell.setClipToOutline(true);
         ImageView glyph = ui.icon(R.drawable.ic_photo, ui.theme.tertiary, 24);
         cell.addView(glyph, new FrameLayout.LayoutParams(ui.dp(24), ui.dp(24), Gravity.CENTER));
@@ -251,13 +325,13 @@ final class LibraryAdapter extends BaseAdapter {
         cell.addView(image, new FrameLayout.LayoutParams(-1, -1));
         TextView badge = ui.label("", 11);
         badge.setTextColor(0xffffffff);
-        badge.setPadding(ui.dp(6), ui.dp(2), ui.dp(6), ui.dp(2));
-        badge.setBackground(ui.shape(0x99000000, 8, 0));
+        badge.setPadding(ui.dp(5), ui.dp(1), ui.dp(5), ui.dp(1));
+        badge.setBackground(ui.shape(0x99000000, 6, 0));
         FrameLayout.LayoutParams badgeParams =
             new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
         badgeParams.setMargins(0, 0, ui.dp(6), ui.dp(6));
         cell.addView(badge, badgeParams);
-        cell.setForeground(ui.ripple(null, ui.shape(ui.theme.ink, 10, 0)));
+        cell.setForeground(ui.ripple(null, ui.shape(ui.theme.ink, Ui.TILE_RADIUS, 0)));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
         params.setMargins(ui.dp(2), ui.dp(2), ui.dp(2), ui.dp(2));
         line.addView(cell, params);
@@ -272,6 +346,7 @@ final class LibraryAdapter extends BaseAdapter {
     for (int i = 0; i < COLUMNS; i++) {
       Square cell = holder.cells[i];
       if (i >= row.items.size()) {
+        enter(holder, i, null, false);
         cell.setVisibility(View.INVISIBLE);
         cell.setOnClickListener(null);
         cell.setOnLongClickListener(null);
@@ -280,6 +355,7 @@ final class LibraryAdapter extends BaseAdapter {
       }
       LibraryModel.Item item = row.items.get(i);
       DownloadStore.Entry entry = entries.get(item.key);
+      enter(holder, i, item.key, fresh.remove(item.key));
       cell.setVisibility(View.VISIBLE);
       holder.glyphs[i].setImageResource(glyph(item.mime));
       cell.setContentDescription(item.name());
