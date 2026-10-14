@@ -125,6 +125,15 @@
     <string name="entry_gif_action">Make GIF</string>
     <string name="entry_gif_started">Making a GIF. Follow its progress in your library.</string>
     <string name="entry_gif_error">Could not start the GIF. %1$s</string>
+    <string name="player_image_error">The image is unavailable. Download it again.</string>
+    <string name="player_video_error">The video could not be played. Share it to another player or download it again.</string>
+    <string name="player_play_description">Play</string>
+    <string name="player_pause_description">Pause</string>
+    <string name="player_position_description">Playback position</string>
+    <string name="player_time_zero">0:00</string>
+    <string name="player_time">%1$s / %2$s</string>
+    <string name="player_original_post">Original post</string>
+
     <string name="kind_video">Video</string>
     <string name="kind_gif">GIF</string>
     <string name="kind_photo">Photo</string>

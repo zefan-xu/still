@@ -314,7 +314,7 @@ public final class PlayerActivity extends Activity {
                   runOnUiThread(
                       () -> {
                         if (!destroyed && !released && pageIndex == currentIndex)
-                          snackbar.show("The image is unavailable. Download it again.");
+                          snackbar.show(getString(R.string.player_image_error));
                       });
                 }
               },
@@ -382,8 +382,7 @@ public final class PlayerActivity extends Activity {
           pageVideo.setOnErrorListener(
               (p, a, b) -> {
                 if (pageIndex == currentIndex)
-                  snackbar.show(
-                      "The video could not be played. Share it to another player or download it again.");
+                  snackbar.show(getString(R.string.player_video_error));
                 return true;
               });
         }
@@ -893,7 +892,7 @@ public final class PlayerActivity extends Activity {
     top.setBackground(
         new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0x99000000, 0x00000000}));
-    top.addView(whiteIcon(R.drawable.ic_arrow_back, "Back", this::finish));
+    top.addView(whiteIcon(R.drawable.ic_arrow_back, getString(R.string.action_back), this::finish));
     titleView = ui.label("", 16);
     titleView.setTextColor(WHITE);
     titleView.setSingleLine();
@@ -907,13 +906,17 @@ public final class PlayerActivity extends Activity {
             GradientDrawable.Orientation.BOTTOM_TOP, new int[] {0xb3000000, 0x00000000}));
     bottom.setClickable(true);
     controls = ui.row();
-    playPause = whiteIcon(R.drawable.ic_play_arrow, "Play", this::togglePlay);
+    playPause =
+        whiteIcon(
+            R.drawable.ic_play_arrow,
+            getString(R.string.player_play_description),
+            this::togglePlay);
     controls.addView(playPause);
     seek = new SeekBar(this);
     seek.setProgressTintList(ColorStateList.valueOf(0xffd97757));
     seek.setThumbTintList(ColorStateList.valueOf(WHITE));
     seek.setProgressBackgroundTintList(ColorStateList.valueOf(0x66faf9f5));
-    seek.setContentDescription("Playback position");
+    seek.setContentDescription(getString(R.string.player_position_description));
     seek.setOnSeekBarChangeListener(
         new SeekBar.OnSeekBarChangeListener() {
           @Override
@@ -935,7 +938,7 @@ public final class PlayerActivity extends Activity {
           }
         });
     controls.addView(seek, new LinearLayout.LayoutParams(0, -2, 1));
-    time = ui.caption("0:00");
+    time = ui.caption(getString(R.string.player_time_zero));
     time.setTextColor(WHITE);
     time.setPadding(ui.dp(4), 0, ui.dp(8), 0);
     controls.addView(time);
@@ -955,7 +958,7 @@ public final class PlayerActivity extends Activity {
       controls.setVisibility(View.VISIBLE);
       if (!prepared) {
         seek.setProgress(0);
-        time.setText("0:00");
+        time.setText(R.string.player_time_zero);
       } else {
         updatePosition();
       }
@@ -966,19 +969,32 @@ public final class PlayerActivity extends Activity {
     actionsRow.removeAllViews();
     if (entry != null) {
       actionsRow.setVisibility(View.VISIBLE);
-      addAction(actionsRow, R.drawable.ic_share, "Share", () -> actions.share(entry));
+      addAction(
+          actionsRow, R.drawable.ic_share, R.string.action_share, () -> actions.share(entry));
       if (EntryActions.video(entry))
-        addAction(actionsRow, R.drawable.ic_gif_box, "Make GIF", () -> actions.makeGif(entry));
+        addAction(
+            actionsRow,
+            R.drawable.ic_gif_box,
+            R.string.entry_gif_action,
+            () -> actions.makeGif(entry));
       if (!entry.source.isEmpty())
         addAction(
-            actionsRow, R.drawable.ic_open_in_new, "Original post", () -> actions.openSource(entry));
-      addAction(actionsRow, R.drawable.ic_delete, "Delete", () -> actions.promptDelete(entry));
+            actionsRow,
+            R.drawable.ic_open_in_new,
+            R.string.player_original_post,
+            () -> actions.openSource(entry));
+      addAction(
+          actionsRow,
+          R.drawable.ic_delete,
+          R.string.action_delete,
+          () -> actions.promptDelete(entry));
     } else {
       actionsRow.setVisibility(View.GONE);
     }
   }
 
-  private void addAction(LinearLayout row, int icon, String label, Runnable click) {
+  private void addAction(LinearLayout row, int icon, int labelResource, Runnable click) {
+    String label = getString(labelResource);
     LinearLayout button = ui.column();
     button.setGravity(Gravity.CENTER_HORIZONTAL);
     button.setPadding(0, ui.dp(8), 0, ui.dp(8));
@@ -1027,14 +1043,19 @@ public final class PlayerActivity extends Activity {
     if (playPause == null) return;
     boolean playing = video != null && video.isPlaying();
     playPause.setImageResource(playing ? R.drawable.ic_pause : R.drawable.ic_play_arrow);
-    playPause.setContentDescription(playing ? "Pause" : "Play");
+    playPause.setContentDescription(
+        getString(playing ? R.string.player_pause_description : R.string.player_play_description));
   }
 
   private void updatePosition() {
     if (video == null || !prepared) return;
     int position = video.getCurrentPosition();
     seek.setProgress(position);
-    time.setText(Format.duration(position) + " / " + Format.duration(video.getDuration()));
+    time.setText(
+        getString(
+            R.string.player_time,
+            Format.duration(position),
+            Format.duration(video.getDuration())));
   }
 
   private void scheduleHide() {
