@@ -98,6 +98,21 @@ public final class Motion {
     return t * t * (3 - 2 * t);
   }
 
+  /**
+   * Where {@link #settle} from rest at 0 toward 1 stands {@code age} seconds later: the same
+   * critically damped curve in closed form, for clips that are pure functions of time.
+   */
+  public static float settled(float age, float seconds) {
+    if (age <= 0) return 0;
+    float a = age / seconds;
+    return a > 30 ? 1 : 1 - (1 + a) * (float) Math.exp(-a);
+  }
+
+  /** The smaller of {@code a} and {@code b}, rounded over a width of about {@code k}. */
+  public static float softMin(float a, float b, float k) {
+    return Math.min(a, b) - k * (float) Math.log(1 + Math.exp(-Math.abs(a - b) / k));
+  }
+
   /** Attack over {@code rise} seconds, then exponential decay with time constant {@code fall}. */
   public static float burst(float age, float rise, float fall) {
     if (age < 0) return 0;
