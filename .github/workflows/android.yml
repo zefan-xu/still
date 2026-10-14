@@ -14,19 +14,20 @@ jobs:
   local:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # The default also installs the long-removed "tools" package, which now fails.
           packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v4
+      # v6 adds a proprietary caching component under separate terms; v5 is MIT-licensed.
+      - uses: gradle/actions/setup-gradle@v5
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - run: python3 scripts/test.py local
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: local-checks
@@ -43,16 +44,16 @@ jobs:
       matrix:
         api: [29, 35]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # The default also installs the long-removed "tools" package, which now fails.
           packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Enable KVM
         run: |
@@ -68,7 +69,7 @@ jobs:
           # Cold boots on hosted runners sometimes exceed the 600-second default.
           emulator-boot-timeout: 900
           script: python3 scripts/test.py device
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: device-api-${{ matrix.api }}
@@ -80,16 +81,16 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.live
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # The default also installs the long-removed "tools" package, which now fails.
           packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Enable KVM
         run: |
@@ -105,7 +106,7 @@ jobs:
           # Cold boots on hosted runners sometimes exceed the 600-second default.
           emulator-boot-timeout: 900
           script: python3 scripts/test.py live --quality both
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: live-public-platforms
