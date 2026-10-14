@@ -1,0 +1,114 @@
+name: yt-dlp
+on:
+  # Fridays, so an update can merge before Sunday's live check and Monday's release.
+  schedule:
+    - cron: '0 6 * * 5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ytdlp
+  cancel-in-progress: false
+jobs:
+  update:
+    name: Open or update the yt-dlp pull request
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      BRANCH: deps/yt-dlp
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+    steps:
+      - name: Update only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "yt-dlp updates are cut from main, not ${GITHUB_REF}." >&2
+          exit 1
+      # Pushes and pull requests made with GITHUB_TOKEN leave CI waiting for a maintainer's approval;
+      # an app token starts it directly. See TESTING.md → CI and releases.
+      - id: app
+        if: vars.YTDLP_APP_ID != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.YTDLP_APP_ID }}
+          private-key: ${{ secrets.YTDLP_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app.outputs.token || github.token }}
+      - id: update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/ytdlp.py update
+      - name: Close a pull request main has caught up with
+        if: steps.update.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh pr close "$open" --delete-branch --comment "main already bundles yt-dlp $VERSION."
+          fi
+      - id: push
+        name: Push the update
+        if: steps.update.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          python3 scripts/ytdlp.py check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git commit -am "Update the bundled yt-dlp to $VERSION"
+          # Leave an identical branch on the current main alone, so CI doesn't rerun every week.
+          if git fetch --depth=2 origin "$BRANCH" 2>/dev/null &&
+            [ "$(git rev-parse FETCH_HEAD^)" = "$(git rev-parse HEAD^)" ] && git diff --quiet FETCH_HEAD HEAD; then
+            echo "$BRANCH already holds this update on the current main."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          else
+            git push --force origin "HEAD:refs/heads/$BRANCH"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open or update the pull request
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+          PREVIOUS: ${{ steps.update.outputs.previous }}
+          WAITS: ${{ vars.YTDLP_APP_ID == '' }}
+        run: |
+          title="Update the bundled yt-dlp to $VERSION"
+          approval=""
+          if [ "$WAITS" = true ]; then
+            approval=" This pull request was opened with \`GITHUB_TOKEN\`, so approve its workflow runs in the merge box to start CI."
+          fi
+          cat > "$RUNNER_TEMP/body.md" <<EOF
+          ## What changes for someone using Still
+
+          New installs and app upgrades start with yt-dlp $VERSION instead of $PREVIOUS, so extractor fixes from [upstream's release notes](https://github.com/yt-dlp/yt-dlp/releases/tag/$VERSION) arrive without tapping **Update** in Settings.
+
+          ## How it was checked
+
+          - [x] \`scripts/ytdlp.py update\` checked the zipapp against the release's \`SHA2-256SUMS\` and confirmed its \`yt_dlp/version.py\` says $VERSION
+          - [x] \`scripts/ytdlp.py check\` confirmed \`ExtractorRuntime\` and \`THIRD_PARTY_NOTICES.md\` describe the new binary
+          - [ ] **CI passed** on this commit; auto-merge squashes the pull request once it does.$approval
+          - [ ] [Live platforms on this branch]($REPO_URL/actions/workflows/live.yml?query=branch%3Adeps%2Fyt-dlp) (not required for merging)
+
+          The [yt-dlp workflow]($REPO_URL/actions/workflows/ytdlp.yml) rewrites \`$BRANCH\` whenever main or the upstream release moves on, so changes pushed here are lost.
+          EOF
+          open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --title "$title" --body-file "$RUNNER_TEMP/body.md" --add-label dependencies
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md" --label dependencies
+          fi
+          gh pr merge "$BRANCH" --auto --squash
+          echo "Pull request: $(gh pr view "$BRANCH" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Start the live check on the branch
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run live.yml --ref "$BRANCH"
