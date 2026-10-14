@@ -32,8 +32,10 @@ public final class OnboardingActivity extends Activity {
   static final String SEEN = "onboarded";
   private static final String STEP = "step";
   private static final int LAST = TutorialFigure.STEPS - 1;
-  private static final String[] TITLES = {
-    "Share from any app", "Or paste a link here", "It all lands in your library"
+  private static final int[] TITLES = {
+    R.string.onboarding_share_title,
+    R.string.onboarding_paste_title,
+    R.string.onboarding_library_title
   };
 
   private Theme theme;
@@ -69,14 +71,14 @@ public final class OnboardingActivity extends Activity {
     theme = Theme.apply(this);
     super.onCreate(state);
     ui = new Ui(this, theme);
-    setTitle("Welcome to Still");
+    setTitle(R.string.onboarding_window_title);
     build();
     int restored = state == null ? 0 : state.getInt(STEP, 0);
     show(Math.max(0, Math.min(LAST, restored)), false);
   }
 
   private void build() {
-    skip = ui.quietButton("Skip", this::skip);
+    skip = ui.quietButton(getString(R.string.onboarding_skip), this::skip);
     skip.setMinHeight(ui.dp(48));
     LinearLayout top = ui.row();
     top.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
@@ -100,9 +102,9 @@ public final class OnboardingActivity extends Activity {
     story.addView(dots());
     story.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
 
-    paste = ui.quietButton("Paste a link", this::paste);
+    paste = ui.quietButton(getString(R.string.onboarding_paste), this::paste);
     paste.setMinHeight(ui.dp(48));
-    next = ui.primaryButton("Next", this::advance);
+    next = ui.primaryButton(getString(R.string.onboarding_next), this::advance);
     next.setMinWidth(ui.dp(132));
     LinearLayout bottom = ui.row();
     bottom.setPadding(ui.dp(14), ui.dp(16), ui.dp(24), ui.dp(16));
@@ -158,7 +160,7 @@ public final class OnboardingActivity extends Activity {
   private View page(int index) {
     LinearLayout page = ui.column();
     page.setPadding(ui.dp(28), ui.dp(8), ui.dp(28), 0);
-    TextView title = ui.display(TITLES[index]);
+    TextView title = ui.display(getString(TITLES[index]));
     title.setTextSize(30);
     if (Build.VERSION.SDK_INT >= 28) title.setAccessibilityHeading(true);
     page.addView(title);
@@ -168,10 +170,14 @@ public final class OnboardingActivity extends Activity {
     page.addView(body);
     if (index == TutorialFigure.SAVED) {
       ui.gap(page, 14);
-      page.addView(ui.caption("Works with public posts on " + Platforms.names("and") + "."));
+      page.addView(
+          ui.caption(
+              getString(
+                  R.string.onboarding_platforms, Platforms.names(getString(R.string.list_and)))));
       ui.gap(page, 4);
       TextView links =
-          ui.quietButton("See supported links", () -> sheet.show(SupportedLinks.build(ui, sheet)));
+          ui.quietButton(
+              getString(R.string.links_see), () -> sheet.show(SupportedLinks.build(ui, sheet)));
       links.setMinHeight(ui.dp(48));
       LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
       params.setMarginStart(-ui.dp(14));
@@ -183,16 +189,11 @@ public final class OnboardingActivity extends Activity {
   private String body(int index) {
     switch (index) {
       case TutorialFigure.SHARE:
-        return "On a post in X, Instagram or any app, tap Share and choose Still. Save from the"
-            + " sheet that opens; the download carries on while you go back to what you were"
-            + " doing.";
+        return getString(R.string.onboarding_share_body);
       case TutorialFigure.PASTE:
-        return "Copy a post's link, paste it into the field at the top of Still and tap the"
-            + " arrow.";
+        return getString(R.string.onboarding_paste_body);
       default:
-        return "Files save to Downloads/"
-            + DownloadStore.folder(this)
-            + " on this device and show up on Still's home screen.";
+        return getString(R.string.onboarding_library_body, DownloadStore.folder(this));
     }
   }
 
@@ -233,8 +234,9 @@ public final class OnboardingActivity extends Activity {
       if (animate) dots[i].to(i == to ? 1 : 0);
       else dots[i].jump(i == to ? 1 : 0);
     }
-    dotsRow.setContentDescription("Step " + (to + 1) + " of " + TutorialFigure.STEPS);
-    next.setText(to == LAST ? "Start" : "Next");
+    dotsRow.setContentDescription(
+        getString(R.string.onboarding_step_description, to + 1, TutorialFigure.STEPS));
+    next.setText(to == LAST ? R.string.onboarding_start : R.string.onboarding_next);
     if (animate) ending.to(to == LAST ? 1 : 0);
     else ending.jump(to == LAST ? 1 : 0);
     if (leaving >= 0) placeLeft(pages[leaving]);

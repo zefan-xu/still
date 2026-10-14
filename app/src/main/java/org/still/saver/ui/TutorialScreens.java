@@ -42,6 +42,7 @@ final class TutorialScreens {
 
   private final Theme t;
   private final Drawable mark, icon;
+  private final String still, pasteLabel, saveLabel;
   private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -55,6 +56,9 @@ final class TutorialScreens {
     t = theme;
     mark = context.getTheme().getDrawable(R.drawable.ic_mark).mutate();
     icon = context.getTheme().getDrawable(R.drawable.ic_still).mutate();
+    still = context.getString(R.string.app_name);
+    pasteLabel = context.getString(R.string.home_paste);
+    saveLabel = context.getString(R.string.action_save);
     line.setStyle(Paint.Style.STROKE);
     line.setStrokeCap(Paint.Cap.ROUND);
     line.setStrokeJoin(Paint.Join.ROUND);
@@ -199,7 +203,7 @@ final class TutorialScreens {
       c.restoreToCount(save);
       text.setTextSize(2.5f);
       text.setColor(otherInk);
-      c.drawText("Still", x, y + r + 4, text);
+      c.drawText(still, x, y + r + 4, text);
       return;
     }
     fill.setColor(apps[index]);
@@ -249,7 +253,7 @@ final class TutorialScreens {
     c.restoreToCount(save);
     word.setTextSize(5.4f);
     word.setColor(t.ink);
-    c.drawText("Still", SIDE + 7, 13.6f, word);
+    c.drawText(still, SIDE + 7, 13.6f, word);
 
     round(c, SIDE, FIELD_Y - 4.75f, W - SIDE, FIELD_Y + 4.75f, 4.75f, t.raised);
     if (typed < 1) rule(c, SIDE + 3.6f, FIELD_Y, 15, 1.2f, scale(t.tertiary, 1 - Motion.smooth(0, 0.15f, typed)));
@@ -273,7 +277,7 @@ final class TutorialScreens {
       c.scale(s, s, pasteAt[0], FIELD_Y);
       text.setTextSize(2.9f);
       text.setColor(scale(t.ink, 1 - linked));
-      c.drawText("Paste", pasteAt[0], FIELD_Y + 1.05f, text);
+      c.drawText(pasteLabel, pasteAt[0], FIELD_Y + 1.05f, text);
       c.restoreToCount(save2);
     }
     if (linked > 0) {
@@ -361,7 +365,7 @@ final class TutorialScreens {
     if (done < 1) {
       text.setTextSize(3);
       text.setColor(scale(t.onInk, 1 - done));
-      c.drawText("Save", W / 2, y + 1.08f, text);
+      c.drawText(saveLabel, W / 2, y + 1.08f, text);
     }
     if (done > 0) {
       line.setStrokeWidth(0.6f);
