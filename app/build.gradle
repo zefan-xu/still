@@ -52,7 +52,7 @@ android {
                 'UseSwitchCompatOrMaterialCode', 'UseSwitchCompatOrMaterialXml', 'SetTextI18n'
     }
     packagingOptions.jniLibs.useLegacyPackaging = true
-    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/licenseAssets')
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/licenseAssets').get().asFile
 }
 
 tasks.register('copyLicenseAssets', Copy) {
