@@ -170,6 +170,58 @@ class RunnerWorkflowTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "exactly one"):
             self.run.device()
 
+    @patch.object(runner, "find_sdk", return_value=Path("/test-sdk"))
+    def test_legacy_mode_accepts_only_api_24_to_28(self, sdk):
+        cases = [("device", 28, "use legacy"), ("device", 29, None), ("legacy", 23, "API 24–28"),
+                 ("legacy", 24, None), ("legacy", 28, None), ("legacy", 29, "use device")]
+        for mode, api, error in cases:
+            with self.subTest(mode=mode, api=api):
+                self.args.mode = mode
+                self.run.command = Mock(return_value=(0, "Success", "install.log"))
+                with patch.object(runner.subprocess, "check_output", side_effect=lambda command, **kw:
+                                  "List of devices attached\nemulator-5554\tdevice\n" if command[-1] == "devices"
+                                  else str(api) if command[-1] == "ro.build.version.sdk" else "x"):
+                    if error:
+                        with self.assertRaisesRegex(RuntimeError, error):
+                            self.run.device()
+                        self.run.command.assert_not_called()
+                    else:
+                        self.run.device()
+                        self.assertEqual(self.run.command.call_count, 2)
+
+    @patch.object(runner.subprocess, "run")
+    def test_legacy_revokes_storage_around_its_selection(self, adb):
+        self.args.mode = "legacy"
+        events = []
+        adb.side_effect = lambda command, **kw: events.append(command[-3:]) or SimpleNamespace(returncode=0)
+        self.run.python_tests = Mock()
+        self.run.device = Mock()
+        self.run.instrumentation = Mock(side_effect=lambda name, selectors: events.append((name, selectors)) or True)
+        self.run.execute()
+        self.assertNotIn("error", self.run.report)
+        revoke = [["revoke", "org.still.saver", "android.permission." + p + "_EXTERNAL_STORAGE"]
+                  for p in ("READ", "WRITE")]
+        self.assertEqual(events, revoke + [("device-legacy", runner.LEGACY)] + revoke)
+
+    @patch.object(runner.subprocess, "run")
+    def test_legacy_restores_revoked_storage_after_a_timeout(self, adb):
+        self.args.classes = ["LegacyStorageTest"]
+        self.run.instrumentation = Mock(side_effect=RuntimeError("Instrumentation timed out"))
+        with self.assertRaisesRegex(RuntimeError, "timed out"):
+            self.run.legacy()
+        self.run.instrumentation.assert_called_once_with("device-legacy", ["LegacyStorageTest"])
+        self.assertEqual([c.args[0][-3] for c in adb.call_args_list], ["revoke"] * 4)
+
+    def test_legacy_selection_stays_offline_and_covers_the_storage_suite(self):
+        self.assertIn("LegacyStorageTest", runner.LEGACY)
+        self.assertIn("OnboardingTest", runner.LEGACY)
+        self.assertNotIn("LegacyStorageTest", runner.OFFLINE)
+        for selector in runner.LEGACY:
+            self.assertNotIn(selector, runner.LIVE)
+            self.assertFalse(selector.startswith("Live"), selector)
+            if selector.startswith("DeviceSmokeTest"):
+                self.assertIn(selector, runner.OFFLINE)
+
 
 class LiveOutcomeTest(unittest.TestCase):
     def setUp(self):

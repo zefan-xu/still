@@ -22,6 +22,12 @@ OFFLINE = [
     "DeviceRegressionTest", "FunctionalUiTest", "MediaWorkflowTest", "OnboardingTest",
     "StreamMergerTest", "DeviceVideoSupportTest", "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
 ]
+LEGACY = [
+    "LegacyStorageTest", "OnboardingTest", "StreamMergerTest", "DeviceVideoSupportTest",
+    "DeviceSmokeTest#bundledPythonStartsAndRunsYtDlp",
+]
+LEGACY_APIS = range(24, 29)
+STORAGE = ["android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE"]
 LIVE = ["LivePlatformDownloadTest", "LivePostDownloadTest", "LiveMetaAvailabilityTest",
         "DeviceSmokeTest#extractsPublicBlueskyVideoOnDevice",
         "DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid"]
@@ -253,8 +259,12 @@ class Run:
                           ("model", "ro.product.model"), ("android", "ro.build.version.release")]:
             metadata[key] = subprocess.check_output(self.adb_args("shell", "getprop", prop), text=True).strip()
         self.report["device"] = metadata
-        if int(metadata["api"]) < 29:
-            raise RuntimeError("The deterministic workflow suite requires API 29+; app minimum remains API 24")
+        api = int(metadata["api"])
+        if self.args.mode == "legacy":
+            if api not in LEGACY_APIS:
+                raise RuntimeError("legacy runs on API 24–28; use device for API 29+")
+        elif api < 29:
+            raise RuntimeError("The deterministic workflow suite requires API 29+; use legacy for API 24–28")
         for name, path in [("install-app", "app/build/outputs/apk/debug/app-debug.apk"),
                            ("install-tests", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")]:
             code, output, _ = self.command(name, self.adb_args("install", "-r", str(ROOT / path)))
@@ -293,6 +303,19 @@ class Run:
         print(f"{name}: {result['count']} tests, {'PASS' if result['passed'] else 'FAIL'}", flush=True)
         # Keep running independent suites so the report shows the full failure scope.
         return result["passed"]
+
+    def legacy(self):
+        """Android prompts only while the whole storage group is revoked; revoking also stops the app."""
+        def revoke():
+            for permission in STORAGE:
+                subprocess.run(self.adb_args("shell", "pm", "revoke", PACKAGE, permission),
+                               capture_output=True, timeout=30, check=True)
+
+        revoke()
+        try:
+            return self.instrumentation("device-legacy", self.args.classes or LEGACY)
+        finally:
+            revoke()
 
     def collect_live(self, name):
         destination = self.directory / name
@@ -377,6 +400,8 @@ class Run:
                 self.device()
                 if self.args.mode in ("device", "all"):
                     self.instrumentation("device-offline", self.args.classes or OFFLINE)
+                if self.args.mode == "legacy":
+                    self.legacy()
                 if self.args.mode in ("live", "all"):
                     qualities = ["highest", "smallest"] if self.args.quality == "both" else [self.args.quality]
                     for quality in qualities:
@@ -404,7 +429,7 @@ class Run:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["local", "device", "live", "all", "screenshots"])
+    parser.add_argument("mode", choices=["local", "device", "legacy", "live", "all", "screenshots"])
     parser.add_argument("--serial", help="ADB serial; required when several devices are connected")
     parser.add_argument("--allow-physical", action="store_true", help="Use the explicitly selected dedicated physical test device")
     parser.add_argument("--quality", choices=["highest", "smallest", "both"], default="both")
