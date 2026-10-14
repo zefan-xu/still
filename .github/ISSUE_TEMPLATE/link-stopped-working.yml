@@ -1,0 +1,32 @@
+name: A link doesn't save
+description: A public post that Still should save shows an error or saves the wrong thing.
+labels: [platform]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [X / Twitter, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky]
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Public post link
+      description: Only public posts are supported. Remove anything personal from the link.
+      placeholder: https://www.threads.com/@nasa/post/…
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The message Still showed, or what was saved instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Still version and Android version
+      description: Android shows Still's version under Settings → Apps → Still.
+      placeholder: Still 1.1.2 on Android 15

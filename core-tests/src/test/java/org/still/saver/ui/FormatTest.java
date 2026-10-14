@@ -25,6 +25,33 @@ public final class FormatTest {
   }
 
   @Test
+  public void sizeUnitsChangeExactlyAtEachBinaryBoundary() {
+    assertEquals("0 B", Format.size(0));
+    assertEquals("1023 B", Format.size(1023));
+    assertEquals("1 KB", Format.size(1024));
+    assertTrue(Format.size(1024 * 1024 - 1).endsWith(" KB"));
+    assertEquals("1.0 MB", Format.size(1024 * 1024));
+    assertTrue(Format.size(1024L * 1024 * 1024 - 1).endsWith(" MB"));
+    assertEquals("1.00 GB", Format.size(1024L * 1024 * 1024));
+  }
+
+  @Test
+  public void resolutionNeedsBothDimensionsAndUsesTheShortSideForVideo() {
+    assertEquals("1p", Format.resolution(1, 1, true));
+    assertEquals("", Format.resolution(1, 0, false));
+    assertEquals("", Format.resolution(-4, 4, false));
+    assertEquals("1 × 1", Format.resolution(1, 1, false));
+  }
+
+  @Test
+  public void unknownKindsAreCapitalizedAndEmptyKindsAreMedia() {
+    assertEquals("Media", Format.kind(""));
+    assertEquals("Audio", Format.kind("audio"));
+    assertEquals("GIF", Format.kind("ANIMATED_GIF"));
+    assertEquals("Photo", Format.kind("Image"));
+  }
+
+  @Test
   public void resolutionAndKindLabels() {
     assertEquals("1080p", Format.resolution(1920, 1080, true));
     assertEquals("720p", Format.resolution(720, 1280, true));

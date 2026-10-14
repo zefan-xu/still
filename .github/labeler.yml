@@ -1,0 +1,12 @@
+app:
+  - changed-files:
+      - any-glob-to-any-file: ['app/src/main/**', 'app/build.gradle']
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['core-tests/**', 'app/src/androidTest/**', 'scripts/tests/**', 'scripts/test.py']
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', 'scripts/release.py', 'scripts/ci_summary.py', 'release/**']
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['*.md', 'docs/**']

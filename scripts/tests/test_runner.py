@@ -114,6 +114,39 @@ class RunnerWorkflowTest(unittest.TestCase):
         self.assertEqual(self.run.execute(), 1)
         self.run.instrumentation.assert_called_once()
 
+    def test_instrumentation_arguments_are_passed_to_the_runner(self):
+        self.run.command = Mock(return_value=(0, output(), "shots.log"))
+        self.assertTrue(self.run.instrumentation("shots", ["Example#works"], 1, arguments=[("readmeScreenshots", "true")]))
+        command = self.run.command.call_args.args[1]
+        index = command.index("readmeScreenshots")
+        self.assertEqual(command[index - 1:index + 2], ["-e", "readmeScreenshots", "true"])
+        self.assertEqual(command[-1], runner.RUNNER)
+
+    @patch.object(runner.subprocess, "run")
+    def test_screenshots_require_every_png(self, adb):
+        png = b"\x89PNG\r\n\x1a\n" + b"data"
+        adb.side_effect = lambda cmd, **kw: SimpleNamespace(
+            returncode=0, stdout=b"" if cmd[-1].endswith("viewer.png") else png)
+        self.run.report["suites"].append({"passed": True, "errors": []})
+        self.assertFalse(self.run.collect_screenshots())
+        self.assertFalse(self.run.report["suites"][-1]["passed"])
+        self.assertIn("viewer", self.run.report["suites"][-1]["errors"][0])
+        self.assertEqual(len(list((self.run.directory / "screenshots").glob("*.png"))), len(runner.SCREENSHOTS) - 1)
+        self.assertEqual(adb.call_args_list[-1].args[0][-3:], ["rm", "-rf", "files/readme"])
+
+    def test_quality_metrics_read_coverage_and_mutation_reports(self):
+        root = Path(self.temp.name)
+        jacoco = root / "core-tests/build/reports/jacoco/test/jacocoTestReport.xml"
+        jacoco.parent.mkdir(parents=True)
+        jacoco.write_text('<report><counter type="LINE" missed="1" covered="3"/>'
+                          '<counter type="BRANCH" missed="1" covered="1"/></report>')
+        pitest = root / "core-tests/build/reports/pitest/mutations.xml"
+        pitest.parent.mkdir(parents=True)
+        pitest.write_text('<mutations><mutation status="KILLED"/><mutation status="SURVIVED"/>'
+                          '<mutation status="TIMED_OUT"/><mutation status="NO_COVERAGE"/></mutations>')
+        self.assertEqual(runner.quality_metrics(root),
+                         {"line_coverage": 0.75, "branch_coverage": 0.5, "mutation_score": 0.5, "mutants": 4})
+
     @patch.object(runner.subprocess, "check_output", return_value="List of devices attached\nphysical123\tdevice\n")
     @patch.object(runner, "find_sdk", return_value=Path("/test-sdk"))
     def test_physical_device_needs_explicit_opt_in(self, sdk, adb):

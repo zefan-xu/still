@@ -104,6 +104,58 @@ public final class LibraryModelTest {
   }
 
   @Test
+  public void todayStartsAtLocalMidnightWhateverTheCurrentTimeOfDay() {
+    Calendar c = Calendar.getInstance(UTC, Locale.ROOT);
+    c.clear();
+    c.set(2026, Calendar.OCTOBER, 12, 23, 59, 59);
+    c.set(Calendar.MILLISECOND, 999);
+    long lateEvening = c.getTimeInMillis();
+    List<LibraryModel.Item> items =
+        Arrays.asList(
+            saved("midnight", at(2026, Calendar.OCTOBER, 12, 0)),
+            saved("before", at(2026, Calendar.OCTOBER, 12, 0) - 1));
+    assertEquals(
+        Arrays.asList("HEADER Today", "GRID midnight", "HEADER This week", "GRID before"),
+        describe(LibraryModel.build(items, "", lateEvening, UTC, Locale.ROOT, 3)));
+  }
+
+  @Test
+  public void groupsFollowTheDeviceTimeZone() {
+    TimeZone tokyo = TimeZone.getTimeZone("Asia/Tokyo");
+    // 15:00 UTC is already 00:00 the next day in Tokyo, so a 14:00 UTC item is "yesterday" there.
+    List<LibraryModel.Item> items = Collections.singletonList(saved("a", at(2026, Calendar.OCTOBER, 12, 14)));
+    assertEquals(Arrays.asList("HEADER Today", "GRID a"), describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 3)));
+    assertEquals(
+        Arrays.asList("HEADER This week", "GRID a"), describe(LibraryModel.build(items, "", NOW, tokyo, Locale.ROOT, 3)));
+  }
+
+  @Test
+  public void gridRowsHoldExactlyTheColumnCount() {
+    List<LibraryModel.Item> items = new ArrayList<>();
+    for (int i = 0; i < 4; i++) items.add(saved("i" + i, NOW));
+    assertEquals(
+        Arrays.asList("HEADER Today", "GRID i0 i1 i2 i3"),
+        describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 4)));
+    assertEquals(
+        Arrays.asList("HEADER Today", "GRID i0", "GRID i1", "GRID i2", "GRID i3"),
+        describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 1)));
+  }
+
+  @Test
+  public void namesFallBackToTheFilenameAndIdsDifferBetweenRows() {
+    LibraryModel.Item untitled =
+        new LibraryModel.Item("k", "", "clip.mp4", "video/mp4", NOW, LibraryModel.State.SAVED, 100, "");
+    assertEquals("clip.mp4", untitled.name());
+    assertEquals("Title a", saved("a", NOW).name());
+    List<LibraryModel.Row> rows =
+        LibraryModel.build(Arrays.asList(saved("a", NOW), saved("b", 0)), "", NOW, UTC, Locale.ROOT, 3);
+    assertSame(rows.get(1).items.get(0), rows.get(1).item());
+    java.util.Set<Long> ids = new java.util.HashSet<>();
+    for (LibraryModel.Row row : rows) assertTrue("Duplicate id for " + row.text, ids.add(row.id()));
+    assertNotEquals(0, rows.get(0).id());
+  }
+
+  @Test
   public void signatureAndIdsTrackVisibleChangesOnly() {
     List<LibraryModel.Item> before =
         Arrays.asList(working("w", LibraryModel.State.ACTIVE, 10), saved("s", NOW));

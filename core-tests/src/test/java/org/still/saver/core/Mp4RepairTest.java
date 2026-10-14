@@ -50,6 +50,27 @@ public class Mp4RepairTest {
     assertEquals(0, Mp4Repair.repair(new Memory(jpeg.clone())));
   }
 
+  @Test
+  public void sizesBeyondTheFileStopTheWalkWhateverTheirLowBytes() throws Exception {
+    byte[] dirtyMoov =
+        box("moov", nest(box("ctts", new byte[] {0, 0, 0, 1, 0, 0, 0, 0}), "stbl", "minf", "mdia", "trak"));
+    // Each declared size is 16 in its low bits, which would land exactly on the moov box.
+    byte[][] lyingHeaders = {
+      {0x01, 0, 0, 0x10, 'f', 'r', 'e', 'e', 0, 0, 0, 0, 0, 0, 0, 0},
+      {0, 0x01, 0, 0x10, 'f', 'r', 'e', 'e', 0, 0, 0, 0, 0, 0, 0, 0},
+      {0, 0, 0, 1, 'f', 'r', 'e', 'e', 0, 0, 0, 1, 0, 0, 0, 0x10},
+      {0, 0, 0, 1, 'f', 'r', 'e', 'e', 0x01, 0, 0, 0, 0, 0, 0, 0x10},
+    };
+    for (byte[] header : lyingHeaders) {
+      byte[] file = concat(header, dirtyMoov);
+      byte[] before = file.clone();
+      assertEquals(0, Mp4Repair.repair(new Memory(file)));
+      assertArrayEquals(before, file);
+    }
+    byte[] honest = concat(new byte[] {0, 0, 0, 0x10, 'f', 'r', 'e', 'e', 0, 0, 0, 0, 0, 0, 0, 0}, dirtyMoov);
+    assertEquals(1, Mp4Repair.repair(new Memory(honest)));
+  }
+
   private static final class Memory implements Mp4Repair.File {
     final byte[] bytes;
 

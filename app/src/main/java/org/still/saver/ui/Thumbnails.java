@@ -133,6 +133,11 @@ public final class Thumbnails {
         });
   }
 
+  /** Test hook: serves a remote preview from memory so offline fixtures show an image. */
+  public void putRemoteForTest(String url, int px, Bitmap bitmap) {
+    memory.put("remote:" + url + ":" + px, new Thumb(bitmap, 0));
+  }
+
   /** Test hook: blocks until queued loads finish. */
   public void idleForTest() throws InterruptedException {
     synchronized (idle) {

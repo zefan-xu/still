@@ -1,0 +1,82 @@
+name: Live platforms
+on:
+  # Sundays, the day before the weekly release, so a platform change is known before shipping.
+  schedule:
+    - cron: '0 14 * * 0'
+  workflow_dispatch:
+    inputs:
+      quality:
+        description: 'Which qualities to download'
+        type: choice
+        options: [both, highest, smallest]
+        default: both
+permissions:
+  contents: read
+concurrency:
+  group: live
+  cancel-in-progress: false
+jobs:
+  live:
+    name: Real downloads from every platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v5
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Free disk space for the emulator
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          disable-animations: true
+          disk-size: 4096M
+          script: python3 scripts/test.py live --quality ${{ inputs.quality || 'both' }}
+      - name: Summarize
+        if: always()
+        run: python3 scripts/ci_summary.py >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: live-platforms
+          path: artifacts/test-runs/
+
+  report:
+    name: Track platform breakage in an issue
+    needs: live
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RESULT: ${{ needs.live.result }}
+    steps:
+      - name: Open, update or close the live-check issue
+        run: |
+          gh label create live-check --color D97757 --description "Weekly real-download check" 2>/dev/null || true
+          open=$(gh issue list --label live-check --state open --json number --jq '.[0].number')
+          if [ "$RESULT" = success ]; then
+            if [ -n "$open" ]; then gh issue close "$open" --comment "Every platform downloads again: $RUN_URL"; fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still failing on $(date -u +%F): $RUN_URL"
+          else
+            gh issue create --label live-check --title "A platform stopped downloading" --body \
+              "The weekly live check failed: $RUN_URL. The job artifact has per-platform JSON with the exact error. A public sample may have been deleted, or a platform changed its pages."
+          fi

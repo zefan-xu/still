@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+    labels: [dependencies]
+    open-pull-requests-limit: 5
+    groups:
+      android-test:
+        patterns: ['androidx.test*']
+      jvm-test-tools:
+        patterns: ['junit*', 'org.junit*', 'net.jqwik*', 'org.pitest*', 'info.solidsoft*', 'com.google.errorprone*', 'net.ltgt*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ['*']

@@ -64,9 +64,14 @@ final class TestFixtures implements AutoCloseable {
   }
 
   Uri video(String title) throws Exception {
+    return media("sample.mp4", title, title + ".mp4", "video/mp4");
+  }
+
+  /** Publishes a test-APK asset into the fixture folder and records it in the library. */
+  Uri media(String asset, String title, String filename, String mime) throws Exception {
     ContentValues values = new ContentValues();
-    values.put(MediaStore.MediaColumns.DISPLAY_NAME, title + ".mp4");
-    values.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
+    values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+    values.put(MediaStore.MediaColumns.MIME_TYPE, mime);
     if (Build.VERSION.SDK_INT >= 29)
       values.put(
           MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + folder);
@@ -83,14 +88,14 @@ final class TestFixtures implements AutoCloseable {
             InstrumentationRegistry.getInstrumentation()
                 .getContext()
                 .getAssets()
-                .open("sample.mp4");
+                .open(asset);
         OutputStream output = app.getContentResolver().openOutputStream(uri)) {
       assertNotNull(output);
       byte[] buffer = new byte[8192];
       int count;
       while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
     }
-    DownloadStore.recordLocal(app, uri, title, title + ".mp4", "video/mp4");
+    DownloadStore.recordLocal(app, uri, title, filename, mime);
     return uri;
   }
 
