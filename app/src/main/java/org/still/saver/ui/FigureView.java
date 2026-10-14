@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.still.saver.ui;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
@@ -15,6 +16,8 @@ import android.view.accessibility.AccessibilityNodeInfo;
  * animations are off. Before a replay or a new clip, the lifted layers fade out where they are
  * and the other moving parts glide back to the clip's opening pose, so nothing pops.
  */
+// Built only in code: the layers and viewport width have no XML attribute form.
+@SuppressLint("ViewConstructor")
 public final class FigureView extends View {
   /** Poses the layers at an age in seconds; {@link Motion#END} is the pose once it is over. */
   public interface Clip {

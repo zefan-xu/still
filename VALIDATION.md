@@ -1,15 +1,15 @@
 # Verification
 
-Still 1.1.0, verified on 2026-10-13 with JDK 21, Android SDK 35 and an isolated Android 15/API 35 ARM64 emulator. Instagram photo resolution was also checked from a physical Android 16 phone on a home network.
+Still 1.2.1, verified on 2026-10-14 with JDK 21, Android SDK 35 and an isolated Android 15/API 35 ARM64 emulator. Instagram photo resolution was also checked from a physical Android 16 phone on a home network.
 
 ## Automated results
 
 | Check | Observed result |
 | --- | --- |
-| JVM tests | 99 tests pass: link parsing, every resolver (X, Instagram, Bluesky, Pinterest, TikTok photos, Threads, Facebook embeds), extractor JSON, scoped cookies, preview fetching, MP4 repair, library grouping, formatting and GIF encoding. |
-| Android build and lint | Debug and instrumentation APKs build; lint reports zero errors and nine warnings (newer dependency versions, native Switch usage, backup metadata, one redundant API guard, one custom view constructor). |
-| Offline device suite | 22 deterministic checks pass: settings, quality selection, saving several items, library search and file operations, Retry/Cancel, Open/Share routing, playback, GIF export, cancellation and failure, download-state recovery and the bundled extractor. |
-| Live public posts | 24 checks pass at highest quality. Each resolves a real public post, downloads every item through the app's queue and requires Android to decode it. |
+| JVM tests | 134 tests pass: link parsing and YouTube link canonicalization, every resolver (X, Instagram, Bluesky, Pinterest, TikTok photos, Threads, Facebook embeds, YouTube), YouTube stream pairing, codec preference and quality ranking, ranged transfers, extractor JSON, scoped cookies, preview fetching, MP4 repair, library grouping, formatting and GIF encoding. |
+| Android build and lint | Debug, release and instrumentation APKs build; lint treats warnings as errors and reports no issues, with no baseline. |
+| Offline device suite | 32 deterministic checks pass: settings, quality selection, saving several items, library search and file operations, Retry/Cancel, Open/Share routing, playback, GIF export, cancellation and failure, download-state recovery, the first-run tutorial, video and audio merging, playable-quality detection and the bundled extractor. |
+| Live public posts | 27 checks run at highest quality: the 24 verified for 1.1.0 pass, and the three YouTube checks added in 1.2.0 pass on their own (2026-10-14). Each resolves a real public post, downloads every item through the app's queue and requires Android to decode it. |
 
 ## Live posts
 
@@ -47,7 +47,7 @@ Expected failures are also asserted: an unavailable Facebook video, a deleted Th
 
 ## Limits
 
-These are specific public samples, not a guarantee for every post, region or codec. Instagram and TikTok may refuse anonymous requests from a network after many requests, or from unusual HTTP clients; Still then reports that the platform is limiting the network. Login-required, private and deleted posts, streaming-only formats, split audio/video tracks outside YouTube's H.264, 8-bit AV1 with AAC and SDR VP9 with Opus files (HDR, 10-bit and AI-upscaled copies are skipped; AV1 needs Android 14, the first release whose MP4 muxer writes it, and H.264 and VP9 need Android 10), and Facebook photos are not supported. On an API 24 emulator, Android's MP4 writer stopped at the first B-frame of the H.264 test asset ("do not support out of order frames"), and YouTube's H.264 has B-frames; the same merge tests pass on API 29 and 35 emulators. API 25–28 were not tried, so Android 7 to 9 are offered YouTube's complete files only. A quality is hidden when none of the phone's decoders reports that size and frame rate; the API 35 emulator decodes VP9 to 4K at 30 fps but AV1 only to 2048×2048 in software, so it is offered no AV1 above 1080p. The AV1 merge was verified only on API 35. Android's WebM muxer drops Opus's 6.5 ms encoder delay, so merged WebM audio starts that much late. Only API 35 ran the full suites; the API 24 and 29 emulators ran only the merge and decoder checks. API 24–28 storage, font, thumbnail and immersive-mode paths are untested on devices. Remote CI has not been run.
+These are specific public samples, not a guarantee for every post, region or codec. Instagram and TikTok may refuse anonymous requests from a network after many requests, or from unusual HTTP clients; Still then reports that the platform is limiting the network. Login-required, private and deleted posts, streaming-only formats, split audio/video tracks outside YouTube's H.264, 8-bit AV1 with AAC and SDR VP9 with Opus files (HDR, 10-bit and AI-upscaled copies are skipped; AV1 needs Android 14, the first release whose MP4 muxer writes it, and H.264 and VP9 need Android 10), and Facebook photos are not supported. On an API 24 emulator, Android's MP4 writer stopped at the first B-frame of the H.264 test asset ("do not support out of order frames"), and YouTube's H.264 has B-frames; the same merge tests pass on API 29 and 35 emulators. API 25–28 were not tried, so Android 7 to 9 are offered YouTube's complete files only. A quality is hidden when none of the phone's decoders reports that size and frame rate; the API 35 emulator decodes VP9 to 4K at 30 fps but AV1 only to 2048×2048 in software, so it is offered no AV1 above 1080p. The AV1 merge was verified only on API 35. Android's WebM muxer drops Opus's 6.5 ms encoder delay, so merged WebM audio starts that much late. Only API 35 ran the live suite; the API 24 emulator ran only the merge and decoder checks. API 24–28 storage, font, thumbnail and immersive-mode paths are untested on devices. GitHub CI runs `scripts/test.py local` and the offline device suite on API 29 and API 35 emulators for every pull request, push to `main` and release.
 
 ## Reproduce
 

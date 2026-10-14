@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.still.saver.ui;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -11,6 +12,8 @@ import android.view.View;
  * A thin rounded progress line. Determinate progress eases between updates; the indeterminate
  * sweep runs only while animations are enabled.
  */
+// Built only in code: its colours come from the app's runtime Theme, not XML attributes.
+@SuppressLint("ViewConstructor")
 public final class ProgressLine extends View {
   private static final float SWEEP_SECONDS = 1.4f, EASE_SECONDS = 0.3f;
   private final Paint track = new Paint(Paint.ANTI_ALIAS_FLAG);
