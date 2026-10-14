@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IDs are area_element[_part]: the area is the screen or component (settings, links, sheet, …),
+  action_ holds verbs shared by buttons and menus, and the part says how the text is used:
+  _title for headings, _body for the paragraph under one, _summary for the second line of a row,
+  _description for accessibility labels and _error for validation messages.
+  Arguments are positional (%1$s, %1$d) so translations can reorder them.
+-->
+<resources>
+    <string name="app_name">Still</string>
+
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_not_now">Not now</string>
+    <string name="action_save">Save</string>
+
+    <string name="sheet_pane_title">Sheet</string>
+    <string name="sheet_selected_description">%1$s, selected</string>
+    <string name="snackbar_fallback">The action could not be completed.</string>
+
+    <string name="links_title">Supported links</string>
+    <string name="links_body">Share or paste a link to a public post from:</string>
+    <string name="links_examples_description">Links like %1$s</string>
+    <string name="links_unsupported_title">Not supported</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_saving_title">Saving</string>
+    <string name="settings_quality">Default quality</string>
+    <string name="settings_quality_ask">Choose for each item</string>
+    <string name="settings_quality_best">Best available</string>
+    <string name="settings_quality_smallest">Smallest available</string>
+    <string name="settings_auto">Save automatically</string>
+    <string name="settings_auto_summary">Save at your default quality right after you share or submit a link.</string>
+    <string name="settings_folder">Folder</string>
+    <string name="settings_folder_summary">Downloads/%1$s</string>
+    <string name="settings_folder_title">Folder inside Downloads</string>
+    <string name="settings_folder_body">New saves go here. Existing files stay where they are.</string>
+    <string name="settings_folder_error">Use 1–60 letters, numbers, spaces, _ or -</string>
+    <string name="settings_downloads_title">Downloads</string>
+    <string name="settings_wifi">Wi-Fi downloads only</string>
+    <string name="settings_wifi_summary">Applies to new downloads. Finding media and previews can still use mobile data.</string>
+    <string name="settings_parallel">At a time</string>
+    <plurals name="settings_parallel_summary">
+        <item quantity="one">%d at a time</item>
+        <item quantity="other">%d at a time</item>
+    </plurals>
+    <string name="settings_parallel_title">Downloads at a time</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_sources_title">Sources</string>
+    <plurals name="settings_links_summary">
+        <item quantity="one">%d platform · public posts only</item>
+        <item quantity="other">%d platforms · public posts only</item>
+    </plurals>
+    <string name="settings_api">X metadata service</string>
+    <string name="settings_api_body">FxTwitter is an open-source public service. You can use a compatible self-hosted HTTPS endpoint.</string>
+    <string name="settings_api_error">Enter an HTTPS endpoint without credentials or query parameters</string>
+    <string name="settings_extractor">On-device extractor</string>
+    <string name="settings_extractor_checking">Checking the official yt-dlp release…</string>
+    <string name="settings_update_title">Update the extractor?</string>
+    <string name="settings_update_body">Still downloads the latest official yt-dlp release from GitHub. Update when a supported site stops working.</string>
+    <string name="settings_update_action">Update</string>
+    <string name="settings_update_done">The extractor is up to date.</string>
+    <string name="settings_update_failed">Update failed. Check your connection and try again.</string>
+    <string name="settings_about_title">About</string>
+    <string name="settings_tutorial">Show tutorial</string>
+    <string name="settings_tutorial_summary">Sharing to Still and pasting links</string>
+    <string name="settings_version">Still %1$s</string>
+    <string name="settings_version_summary">Open source · GPL-3.0-or-later</string>
+    <string name="settings_licenses">Open-source licenses</string>
+    <string name="settings_licenses_notices">Third-party notices</string>
+    <string name="settings_privacy">No ads, analytics, purchases or accounts. Preferences and history stay on this device. Public media only: login-required, deleted and protected posts may not be available.</string>
+</resources>

@@ -15,7 +15,9 @@ final class SupportedLinks {
 
   static View build(Ui ui, Sheet sheet) {
     LinearLayout box =
-        sheet.frame("Supported links", "Share or paste a link to a public post from:");
+        sheet.frame(
+            ui.activity.getString(R.string.links_title),
+            ui.activity.getString(R.string.links_body));
     for (Platforms.Platform platform : Platforms.ALL) {
       LinearLayout row = ui.column();
       row.setPadding(ui.dp(24), ui.dp(10), ui.dp(24), ui.dp(10));
@@ -26,11 +28,13 @@ final class SupportedLinks {
       row.addView(kinds);
       TextView shapes = ui.caption(TextUtils.join("  ·  ", platform.examples));
       shapes.setPadding(0, ui.dp(2), 0, 0);
-      shapes.setContentDescription("Links like " + TextUtils.join(", ", platform.examples));
+      shapes.setContentDescription(
+          ui.activity.getString(
+              R.string.links_examples_description, TextUtils.join(", ", platform.examples)));
       row.addView(shapes);
       box.addView(row);
     }
-    TextView header = ui.sectionHeader("Not supported");
+    TextView header = ui.sectionHeader(ui.activity.getString(R.string.links_unsupported_title));
     header.setPadding(ui.dp(24), ui.dp(20), ui.dp(24), ui.dp(6));
     box.addView(header);
     for (String limit : Platforms.LIMITS) {
@@ -42,7 +46,7 @@ final class SupportedLinks {
     }
     LinearLayout footer = ui.column();
     footer.setPadding(ui.dp(24), ui.dp(20), ui.dp(24), ui.dp(4));
-    footer.addView(ui.secondaryButton("Close", sheet::dismiss), new LinearLayout.LayoutParams(-1, -2));
+    footer.addView(ui.secondaryButton(ui.activity.getString(R.string.action_close), sheet::dismiss), new LinearLayout.LayoutParams(-1, -2));
     box.addView(footer);
     return box;
   }
