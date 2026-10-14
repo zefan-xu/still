@@ -4,6 +4,7 @@ package org.still.saver.ui;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -175,10 +176,20 @@ public final class Thumbnails {
             main.post(
                 () -> {
                   if (!key.equals(view.getTag())) return;
-                  view.setImageBitmap(result.bitmap);
+                  fadeIn(view, result.bitmap);
                   if (callback != null) callback.loaded(result);
                 });
         });
+  }
+
+  /** Fades the drawable, not the view, so callers stay free to dim the view itself. */
+  private static void fadeIn(ImageView view, Bitmap bitmap) {
+    BitmapDrawable image = new BitmapDrawable(view.getResources(), bitmap);
+    view.setImageDrawable(image);
+    Motion.play(
+        view,
+        0.3f,
+        age -> image.setAlpha(Math.round(255 * (age == Motion.END ? 1 : Motion.smooth(0, 0.22f, age)))));
   }
 
   private void finished() {

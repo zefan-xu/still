@@ -6,7 +6,6 @@ import android.os.Build;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -45,11 +44,15 @@ public final class Sheet {
     }
   }
 
+  private static final float OPEN_SECONDS = 0.08f, CLOSE_SECONDS = 0.06f;
   private final Ui ui;
   private final FrameLayout host;
   private View scrim;
   private LinearLayout panel;
   private ScrollView scroll;
+  private Motion.Value opening;
+  private Motion.Loop swap, leaving;
+  private View leavingPanel, leavingScrim;
   private Runnable onDismiss;
   private boolean cancelable = true;
 
@@ -88,6 +91,11 @@ public final class Sheet {
       replace(content);
       return;
     }
+    // A sheet opened as the last one leaves (an action becoming its confirmation) takes over
+    // its scrim and fades in place instead of sliding up again.
+    boolean handoff = leaving != null;
+    float scrimFrom = handoff ? leavingScrim.getAlpha() : 0;
+    endLeaving();
     Theme t = ui.theme;
     scrim = new View(ui.activity);
     scrim.setBackgroundColor(t.scrim);
@@ -121,42 +129,134 @@ public final class Sheet {
     host.addView(panel, params);
     if (Build.VERSION.SDK_INT >= 28) panel.setAccessibilityPaneTitle("Sheet");
     hideBehind(true);
-    scrim.setAlpha(0);
-    scrim.animate().alpha(1).setDuration(200).start();
-    panel.setTranslationY(ui.dp(400));
-    panel.animate()
-        .translationY(0)
-        .setDuration(240)
-        .setInterpolator(new DecelerateInterpolator(2))
-        .start();
+    View enteringScrim = scrim, enteringPanel = panel;
+    float lift = ui.dp(24);
+    opening =
+        new Motion.Value(
+            panel,
+            0,
+            OPEN_SECONDS,
+            p -> {
+              enteringScrim.setAlpha(scrimFrom + (1 - scrimFrom) * p);
+              if (handoff) {
+                enteringPanel.setAlpha(p);
+                enteringPanel.setTranslationY((1 - p) * lift);
+              } else enteringPanel.setTranslationY((1 - p) * travel(enteringPanel));
+            });
+    opening.to(1);
     content.post(() -> focusFirst(content));
   }
 
+  /** Swaps in a different screen, crossfading from the old content. */
   public void replace(View content) {
     if (!isShowing()) {
       show(content);
       return;
     }
+    finishSwap();
+    View old = scroll.getChildAt(0);
+    int dx = scroll.getLeft(), dy = scroll.getTop() - scroll.getScrollY();
     scroll.removeAllViews();
     scroll.addView(content);
     scroll.scrollTo(0, 0);
+    if (old != null && old.getHeight() > 0) {
+      LinearLayout owner = panel;
+      old.offsetLeftAndRight(dx);
+      old.offsetTopAndBottom(dy);
+      owner.getOverlay().add(old);
+      swap =
+          Motion.play(
+              owner,
+              0.3f,
+              age -> {
+                if (age == Motion.END) {
+                  owner.getOverlay().remove(old);
+                  content.setAlpha(1);
+                } else {
+                  old.setAlpha(1 - Motion.smooth(0, 0.12f, age));
+                  content.setAlpha(Motion.smooth(0.04f, 0.22f, age));
+                }
+              });
+    }
     content.post(() -> focusFirst(content));
   }
 
+  /** Re-renders the same screen in place: no crossfade, and the scroll position is kept. */
+  public void update(View content) {
+    if (!isShowing()) {
+      show(content);
+      return;
+    }
+    finishSwap();
+    scroll.removeAllViews();
+    scroll.addView(content);
+  }
+
+  /**
+   * Closes at once: the state, listener and back handling change synchronously, and only the old
+   * views slide out in the host's overlay, where they take no input.
+   */
   public void dismiss() {
     if (!isShowing()) return;
+    finishSwap();
+    opening.stop();
     View oldPanel = panel, oldScrim = scrim;
     panel = null;
     scrim = null;
     scroll = null;
+    opening = null;
     cancelable = true;
     hideKeyboard(oldPanel);
     hideBehind(false);
-    host.removeView(oldScrim);
-    host.removeView(oldPanel);
+    leave(oldPanel, oldScrim);
     Runnable listener = onDismiss;
     onDismiss = null;
     if (listener != null) listener.run();
+  }
+
+  private float travel(View view) {
+    return view.getHeight() > 0
+        ? view.getHeight()
+        : ui.activity.getResources().getDisplayMetrics().heightPixels;
+  }
+
+  private void leave(View oldPanel, View oldScrim) {
+    endLeaving();
+    host.getOverlay().add(oldScrim);
+    host.getOverlay().add(oldPanel);
+    leavingPanel = oldPanel;
+    leavingScrim = oldScrim;
+    float fromY = oldPanel.getTranslationY(), toY = travel(oldPanel);
+    float fromAlpha = oldScrim.getAlpha();
+    Motion.State shown = new Motion.State(1);
+    leaving =
+        new Motion.Loop(
+            host,
+            (dt, calm) -> {
+              boolean moving = Motion.settle(shown, 0, dt, CLOSE_SECONDS, calm) && shown.x > 0.004f;
+              oldScrim.setAlpha(fromAlpha * shown.x);
+              oldPanel.setTranslationY(fromY + (toY - fromY) * (1 - shown.x));
+              if (!moving) endLeaving();
+              return moving;
+            });
+    leaving.start();
+  }
+
+  private void endLeaving() {
+    if (leaving == null) return;
+    leaving.stop();
+    leaving = null;
+    host.getOverlay().remove(leavingPanel);
+    host.getOverlay().remove(leavingScrim);
+    leavingPanel = null;
+    leavingScrim = null;
+  }
+
+  private void finishSwap() {
+    if (swap == null) return;
+    Motion.Loop running = swap;
+    swap = null;
+    running.finish();
   }
 
   private void hideBehind(boolean hidden) {

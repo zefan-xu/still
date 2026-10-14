@@ -25,6 +25,9 @@ import android.widget.TextView;
  * cards; a single dark primary action; serif only for app-authored headings.
  */
 public final class Ui {
+  /** Corner radius shared by library tiles and row thumbnails, in dp. */
+  public static final float TILE_RADIUS = 12;
+
   public final Activity activity;
   public final Theme theme;
   private int insetTop, insetBottom;
@@ -101,7 +104,10 @@ public final class Ui {
   }
 
   private TextView text(String value, float size, int color) {
-    TextView t = new TextView(activity);
+    return style(new TextView(activity), value, size, color);
+  }
+
+  private <T extends TextView> T style(T t, String value, float size, int color) {
     t.setText(value);
     t.setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
     t.setTextColor(color);
@@ -173,7 +179,10 @@ public final class Ui {
   }
 
   private TextView button(String label, Drawable background, int color, Runnable click) {
-    TextView t = label(label, 16, color);
+    return button(label(label, 16, color), background, click);
+  }
+
+  private TextView button(TextView t, Drawable background, Runnable click) {
     t.setGravity(Gravity.CENTER);
     t.setSingleLine();
     t.setEllipsize(TextUtils.TruncateAt.END);
@@ -194,10 +203,36 @@ public final class Ui {
 
   /** The one obvious action on a screen or sheet. */
   public TextView primaryButton(String label, Runnable click) {
-    TextView t =
-        button(label, ripple(shape(theme.ink, 26, 0), null), theme.onInk, click);
+    PressButton t = style(new PressButton(activity), label, 16, theme.onInk);
+    t.setTypeface(Fonts.medium());
+    button(t, ripple(shape(theme.ink, 26, 0), null), click);
     t.setStateListAnimator(null);
     return t;
+  }
+
+  /** Sinks to 0.98 while pressed, following the press with an exponential ease. */
+  private static final class PressButton extends TextView {
+    private final Motion.Loop loop = new Motion.Loop(this, this::step);
+    private float scale = 1, target = 1;
+
+    PressButton(android.content.Context context) {
+      super(context);
+    }
+
+    @Override
+    public void setPressed(boolean pressed) {
+      super.setPressed(pressed);
+      if (loop == null) return; // Called from the TextView constructor.
+      target = pressed ? 0.98f : 1;
+      loop.start();
+    }
+
+    private boolean step(float dt, boolean calm) {
+      scale = Motion.follow(scale, target, dt, 0.06f, calm);
+      setScaleX(scale);
+      setScaleY(scale);
+      return scale != target;
+    }
   }
 
   public TextView secondaryButton(String label, Runnable click) {
@@ -297,7 +332,7 @@ public final class Ui {
       boolean checked,
       CompoundButton.OnCheckedChangeListener listener) {
     LinearLayout box = column();
-    box.setPadding(dp(24), dp(12), dp(20), dp(14));
+    box.setPadding(dp(24), dp(12), dp(24), dp(14));
     Switch control = new Switch(activity);
     control.setText(title);
     control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
