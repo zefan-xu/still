@@ -55,6 +55,10 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v5
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Free disk space for the emulator
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -66,8 +70,8 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
-          # Cold boots on hosted runners sometimes exceed the 600-second default.
-          emulator-boot-timeout: 900
+          # The default ~7 GB userdata partition sometimes exceeds the runner's free space.
+          disk-size: 4096M
           script: python3 scripts/test.py device
       - uses: actions/upload-artifact@v7
         if: always()
@@ -92,6 +96,10 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v5
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Free disk space for the emulator
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -103,8 +111,8 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
-          # Cold boots on hosted runners sometimes exceed the 600-second default.
-          emulator-boot-timeout: 900
+          # The default ~7 GB userdata partition sometimes exceeds the runner's free space.
+          disk-size: 4096M
           script: python3 scripts/test.py live --quality both
       - uses: actions/upload-artifact@v7
         if: always()
