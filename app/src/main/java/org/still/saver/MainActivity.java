@@ -6,12 +6,17 @@ import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -31,8 +36,10 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.still.saver.core.Platforms;
 import org.still.saver.gif.GifService;
 import org.still.saver.ui.LibraryModel;
+import org.still.saver.ui.Motion;
 import org.still.saver.ui.ProgressLine;
 import org.still.saver.ui.Sheet;
 import org.still.saver.ui.Snackbar;
@@ -53,12 +60,14 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   private LibraryAdapter adapter;
   private EditText input, search;
   private LinearLayout header, searchBar, composer, status;
-  private FrameLayout trailing;
+  private TextView paste, hint;
+  private ImageView go;
+  private Motion.Value linked, hintFade;
   private TextView statusText;
   private ProgressLine statusLine;
-  private TextView statusCancel;
+  private TextView statusCancel, statusLinks;
   private boolean resumed, searching, resultsShowing;
-  private String filter = "", dismissedGif = "";
+  private String filter = "", dismissedGif = "", hintState;
   private int refreshTicket, appliedTicket;
 
   private final Runnable refresh =
@@ -94,6 +103,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     actions = new EntryActions(this, sheet, actionsListener());
     if (state != null) {
       input.setText(state.getString("input", ""));
+      settleComposer();
       filter = state.getString("filter", "");
       if (state.getBoolean("searching", false)) setSearching(true);
     }
@@ -119,6 +129,12 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     LinearLayout content = ui.column();
     header = ui.row();
     header.setPadding(ui.dp(24), ui.dp(10), ui.dp(8), ui.dp(4));
+    ImageView mark = ui.icon(R.drawable.ic_mark, theme.ink, 28);
+    mark.setImageTintList(null);
+    mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28));
+    markParams.setMarginEnd(ui.dp(8));
+    header.addView(mark, markParams);
     TextView wordmark = ui.title("Still", 28);
     wordmark.setTypeface(org.still.saver.ui.Fonts.display(this));
     if (android.os.Build.VERSION.SDK_INT >= 28) wordmark.setAccessibilityHeading(true);
@@ -149,8 +165,16 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     composer = ui.column();
     composer.setPadding(ui.dp(20), ui.dp(12), ui.dp(20), ui.dp(4));
     LinearLayout box = ui.row();
-    box.setBackground(ui.shape(theme.raised, 18, 0));
+    GradientDrawable boxBackground = ui.shape(theme.raised, 18, 0);
+    box.setBackground(boxBackground);
     box.setPadding(ui.dp(4), ui.dp(2), ui.dp(6), ui.dp(2));
+    int ring = Math.max(1, ui.dp(1));
+    Motion.Value focus =
+        new Motion.Value(
+            box,
+            0,
+            0.12f,
+            p -> boxBackground.setStroke(ring, Theme.mix(theme.raised, theme.ink, p)));
     input = new EditText(this);
     input.setHint("Paste a link");
     input.setTextColor(theme.ink);
@@ -174,11 +198,19 @@ public final class MainActivity extends Activity implements SaveSession.Host {
           }
           return false;
         });
-    input.addTextChangedListener(watcher(text -> updateTrailing()));
+    input.setOnFocusChangeListener((v, focused) -> focus.to(focused ? 1 : 0));
+    input.addTextChangedListener(watcher(this::edited));
     box.addView(input, new LinearLayout.LayoutParams(0, -2, 1));
-    trailing = new FrameLayout(this);
-    box.addView(trailing, new LinearLayout.LayoutParams(-2, -2));
+    box.addView(trailing(), new LinearLayout.LayoutParams(-2, -2));
     composer.addView(box, new LinearLayout.LayoutParams(-1, -2));
+    hint = ui.caption("");
+    hint.setPadding(ui.dp(6), ui.dp(10), ui.dp(6), ui.dp(6));
+    hint.setCompoundDrawablePadding(ui.dp(8));
+    hint.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+    hint.setBackground(ui.ripple(null, ui.shape(theme.ink, 10, 0)));
+    hint.setOnClickListener(v -> showSupportedLinks());
+    hintFade = new Motion.Value(hint, 1, 0.1f, hint::setAlpha);
+    composer.addView(hint, new LinearLayout.LayoutParams(-1, -2));
     status = ui.column();
     status.setPadding(ui.dp(6), ui.dp(10), ui.dp(6), 0);
     statusLine = new ProgressLine(this, theme);
@@ -189,6 +221,8 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     statusRow.addView(statusText, new LinearLayout.LayoutParams(0, -2, 1));
     statusCancel = ui.quietButton("Cancel", () -> session.cancelLookup());
     statusRow.addView(statusCancel);
+    statusLinks = ui.quietButton("Supported links", this::showSupportedLinks);
+    statusRow.addView(statusLinks);
     status.addView(statusRow);
     status.setVisibility(View.GONE);
     composer.addView(status);
@@ -231,6 +265,11 @@ public final class MainActivity extends Activity implements SaveSession.Host {
                 dismissedGif = GifService.getStatus();
                 refreshNow();
               }
+
+              @Override
+              public void supportedLinks() {
+                showSupportedLinks();
+              }
             });
     list.setAdapter(adapter);
     content.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -241,7 +280,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     results = new ResultsSheet(ui, sheet, false);
     setContentView(root);
     root.requestApplyInsets();
-    updateTrailing();
+    settleComposer();
   }
 
   private interface TextChange {
@@ -261,26 +300,98 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   }
 
   /** Paste while the field is empty; an arrow to find media once there is a link. */
-  private void updateTrailing() {
-    trailing.removeAllViews();
-    if (input.length() == 0) {
-      TextView paste = ui.quietButton("Paste", this::paste);
-      paste.setContentDescription("Paste");
-      trailing.addView(paste);
+  private View trailing() {
+    FrameLayout frame = new FrameLayout(this);
+    paste = ui.quietButton("Paste", this::paste);
+    paste.setContentDescription("Paste");
+    frame.addView(paste, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+    go = ui.iconButton(R.drawable.ic_arrow_forward, "Find media", this::find);
+    go.setImageTintList(android.content.res.ColorStateList.valueOf(theme.onInk));
+    GradientDrawable circle = new GradientDrawable();
+    circle.setShape(GradientDrawable.OVAL);
+    circle.setColor(theme.ink);
+    go.setBackground(ui.ripple(circle, null));
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(ui.dp(44), ui.dp(44), Gravity.CENTER);
+    params.setMargins(ui.dp(4), ui.dp(4), ui.dp(2), ui.dp(4));
+    go.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
+    frame.addView(go, params);
+    linked = new Motion.Value(frame, 0, 0.08f, this::placeTrailing);
+    return frame;
+  }
+
+  /** 0 shows Paste, 1 the arrow; in between they cross-scale. */
+  private void placeTrailing(float p) {
+    paste.setAlpha(1 - p);
+    paste.setScaleX(1 - 0.4f * p);
+    paste.setScaleY(1 - 0.4f * p);
+    paste.setVisibility(p < 1 ? View.VISIBLE : View.GONE);
+    go.setAlpha(p);
+    go.setScaleX(0.6f + 0.4f * p);
+    go.setScaleY(0.6f + 0.4f * p);
+    go.setVisibility(p > 0 ? View.VISIBLE : View.GONE);
+  }
+
+  private void edited(String text) {
+    boolean link = !text.isEmpty();
+    paste.setEnabled(!link);
+    go.setEnabled(link);
+    linked.to(link ? 1 : 0);
+    updateHint(text, true);
+    if (status.getVisibility() == View.VISIBLE && statusLine.getVisibility() != View.VISIBLE)
+      showStatus(null, false, false);
+  }
+
+  /** Puts the composer in its resting state for the current text, without motion. */
+  private void settleComposer() {
+    String text = input.getText().toString();
+    paste.setEnabled(text.isEmpty());
+    go.setEnabled(!text.isEmpty());
+    linked.jump(text.isEmpty() ? 0 : 1);
+    updateHint(text, false);
+  }
+
+  /** Lists the platforms while idle; while a link is typed, says whether Still can read it. */
+  private void updateHint(String text, boolean fade) {
+    Platforms.Match match = text.trim().isEmpty() ? null : Platforms.detect(text);
+    String state = text.trim().isEmpty() ? "" : match == null ? "unsupported" : match.label();
+    if (state.equals(hintState)) return;
+    hintState = state;
+    Drawable dot = null;
+    if (state.isEmpty()) {
+      String see = "See all";
+      SpannableString idle =
+          new SpannableString("Works with " + Platforms.names("and") + " · " + see);
+      int start = idle.length() - see.length();
+      idle.setSpan(
+          new ForegroundColorSpan(theme.ink), start, idle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      hint.setText(idle);
+      hint.setTextColor(theme.tertiary);
+      hint.setContentDescription(
+          "Works with " + Platforms.names("and") + ". See all supported links");
+    } else if (match != null) {
+      hint.setText(match.label() + " · ready");
+      hint.setTextColor(theme.secondary);
+      hint.setContentDescription(match.label() + ", ready");
+      GradientDrawable accent = new GradientDrawable();
+      accent.setShape(GradientDrawable.OVAL);
+      accent.setColor(theme.accentStrong);
+      accent.setBounds(0, 0, ui.dp(6), ui.dp(6));
+      dot = accent;
     } else {
-      ImageView go = ui.iconButton(R.drawable.ic_arrow_forward, "Find media", this::find);
-      go.setImageTintList(android.content.res.ColorStateList.valueOf(theme.onInk));
-      android.graphics.drawable.GradientDrawable circle =
-          new android.graphics.drawable.GradientDrawable();
-      circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-      circle.setColor(theme.ink);
-      go.setBackground(ui.ripple(circle, null));
-      FrameLayout.LayoutParams params =
-          new FrameLayout.LayoutParams(ui.dp(44), ui.dp(44), Gravity.CENTER);
-      params.setMargins(ui.dp(4), ui.dp(4), ui.dp(2), ui.dp(4));
-      go.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
-      trailing.addView(go, params);
+      hint.setText("Not a supported link");
+      hint.setTextColor(theme.tertiary);
+      hint.setContentDescription("Not a supported link. See supported links");
     }
+    hint.setCompoundDrawablesRelative(dot, null, null, null);
+    if (fade) {
+      hintFade.jump(0);
+      hintFade.to(1);
+    } else hintFade.jump(1);
+  }
+
+  private void showSupportedLinks() {
+    sheet.show(SupportedLinks.build(ui, sheet));
   }
 
   private void setSearching(boolean value) {
@@ -319,6 +430,8 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   }
 
   private void showStatus(String text, boolean loading, boolean error) {
+    statusLinks.setVisibility(View.GONE);
+    hint.setVisibility(text == null ? View.VISIBLE : View.GONE);
     if (text == null) {
       status.setVisibility(View.GONE);
       return;
@@ -340,6 +453,9 @@ public final class MainActivity extends Activity implements SaveSession.Host {
         break;
       case ERROR:
         showStatus(s.message(), false, true);
+        String text = input.getText().toString();
+        if (!text.trim().isEmpty() && Platforms.detect(text) == null)
+          statusLinks.setVisibility(View.VISIBLE);
         hideResults();
         break;
       case READY:
@@ -387,8 +503,10 @@ public final class MainActivity extends Activity implements SaveSession.Host {
               @Override
               public void openApp() {}
             });
-    if (resultsShowing && sheet.isShowing()) sheet.replace(view);
-    else {
+    if (resultsShowing && sheet.isShowing()) {
+      if (results.redraw()) sheet.update(view);
+      else sheet.replace(view);
+    } else {
       sheet.show(view);
       resultsShowing = true;
       sheet.setOnDismiss(
