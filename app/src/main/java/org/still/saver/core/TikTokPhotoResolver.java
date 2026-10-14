@@ -61,9 +61,9 @@ public final class TikTokPhotoResolver {
     PublicPages.checkCancelled();
     URI next = PublicPages.redirect(url, reply.location);
     if (reply.status < 300 || reply.status >= 400 || next == null)
-      throw new IOException("This TikTok short link did not lead to a post.");
+      throw new UserError(ErrorCode.TIKTOK_SHORT_LINK_NO_POST);
     if (!PublicPages.onDomain(next.toString(), "tiktok.com"))
-      throw new IOException("This TikTok short link leads away from TikTok.");
+      throw new UserError(ErrorCode.TIKTOK_SHORT_LINK_AWAY);
     return PHOTO_PATH.matcher(next.getRawPath()).matches() ? next.toString() : null;
   }
 
@@ -81,23 +81,23 @@ public final class TikTokPhotoResolver {
   static Post parse(String html, String user, String id) throws IOException {
     Matcher script = DATA_SCRIPT.matcher(html);
     if (!script.find())
-      throw new IOException("TikTok did not include this post. Wait a moment and try again.");
+      throw new UserError(ErrorCode.TIKTOK_MISSING);
     JSONObject detail;
     try {
       JSONObject scope =
           new JSONObject(script.group(1)).getJSONObject("__DEFAULT_SCOPE__");
       detail = scope.optJSONObject("webapp.video-detail");
     } catch (JSONException e) {
-      throw new IOException("TikTok returned an unexpected page.", e);
+      throw new UserError(e, ErrorCode.TIKTOK_UNEXPECTED);
     }
     if (detail == null)
-      throw new IOException("TikTok did not include this post. Wait a moment and try again.");
+      throw new UserError(ErrorCode.TIKTOK_MISSING);
     if (detail.optInt("statusCode", 0) != 0)
-      throw new IOException("TikTok says this post is unavailable. It may be private or deleted.");
+      throw new UserError(ErrorCode.TIKTOK_UNAVAILABLE);
     JSONObject info = detail.optJSONObject("itemInfo");
     JSONObject item = info == null ? null : info.optJSONObject("itemStruct");
     if (item == null || !id.equals(item.optString("id", id)))
-      throw new IOException("TikTok did not include this post. Wait a moment and try again.");
+      throw new UserError(ErrorCode.TIKTOK_MISSING);
     JSONObject post = item.optJSONObject("imagePost");
     JSONArray images = post == null ? null : post.optJSONArray("images");
     List<Media> media = new ArrayList<>();
@@ -116,7 +116,7 @@ public final class TikTokPhotoResolver {
       media.add(new Media("photo", Collections.singletonList(variant), preview, 0));
     }
     if (media.isEmpty())
-      throw new IOException("This TikTok post has no downloadable photos.");
+      throw new UserError(ErrorCode.TIKTOK_NO_PHOTOS);
     JSONObject author = item.optJSONObject("author");
     String handle = author == null ? user : author.optString("uniqueId", user);
     String title = item.optString("desc", "").trim();

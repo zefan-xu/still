@@ -390,7 +390,8 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   /** Lists the platforms while idle; while a link is typed, says whether Still can read it. */
   private void updateHint(String text, boolean fade) {
     Platforms.Match match = text.trim().isEmpty() ? null : Platforms.detect(text);
-    String state = text.trim().isEmpty() ? "" : match == null ? "unsupported" : match.label();
+    String label = match == null ? null : CoreText.label(this, match);
+    String state = text.trim().isEmpty() ? "" : match == null ? "unsupported" : label;
     if (state.equals(hintState)) return;
     hintState = state;
     Drawable dot = null;
@@ -408,9 +409,9 @@ public final class MainActivity extends Activity implements SaveSession.Host {
       hint.setTextColor(theme.tertiary);
       hint.setContentDescription(getString(R.string.home_hint_idle_description, names));
     } else if (match != null) {
-      hint.setText(getString(R.string.home_hint_ready, match.label()));
+      hint.setText(getString(R.string.home_hint_ready, label));
       hint.setTextColor(theme.secondary);
-      hint.setContentDescription(getString(R.string.home_hint_ready_description, match.label()));
+      hint.setContentDescription(getString(R.string.home_hint_ready_description, label));
       GradientDrawable accent = new GradientDrawable();
       accent.setShape(GradientDrawable.OVAL);
       accent.setColor(theme.accentStrong);

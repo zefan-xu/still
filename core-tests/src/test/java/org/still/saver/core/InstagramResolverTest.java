@@ -131,7 +131,7 @@ public class InstagramResolverTest {
       InstagramResolver.parse(html, "https://www.instagram.com/p/" + code + "/", code);
       fail("Expected " + message);
     } catch (IOException e) {
-      assertTrue(e.getMessage(), e.getMessage().contains(message));
+      assertTrue(English.message(e), English.message(e).contains(message));
     }
   }
 
@@ -140,7 +140,7 @@ public class InstagramResolverTest {
       new InstagramResolver((url, headers) -> reply).resolve("https://www.instagram.com/p/AbC/");
       fail("Expected " + message);
     } catch (IOException e) {
-      assertTrue(e.getMessage(), e.getMessage().contains(message));
+      assertTrue(English.message(e), English.message(e).contains(message));
     }
   }
 

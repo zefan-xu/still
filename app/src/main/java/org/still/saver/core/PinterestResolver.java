@@ -66,10 +66,10 @@ public final class PinterestResolver {
       PublicPages.checkCancelled();
       URI next = PublicPages.redirect(url, reply.location);
       if (reply.status < 300 || reply.status >= 400 || next == null || !pinterest(next.getHost()))
-        throw new IOException("This Pinterest link does not lead to a pin.");
+        throw new UserError(ErrorCode.PINTEREST_NOT_PIN);
       url = next.toString();
     }
-    throw new IOException("This Pinterest link redirected too many times.");
+    throw new UserError(ErrorCode.PINTEREST_TOO_MANY_REDIRECTS);
   }
 
   static Post parse(String json, String id) throws IOException {
@@ -77,9 +77,9 @@ public final class PinterestResolver {
     try {
       pin = new JSONObject(json).getJSONObject("resource_response").optJSONObject("data");
     } catch (JSONException e) {
-      throw new IOException("Pinterest returned an unexpected response.", e);
+      throw new UserError(e, ErrorCode.PINTEREST_UNEXPECTED);
     }
-    if (pin == null) throw new IOException("This Pinterest pin is deleted or unavailable.");
+    if (pin == null) throw new UserError(ErrorCode.PINTEREST_UNAVAILABLE);
     if (video(pin)) return null;
     Set<String> urls = new LinkedHashSet<>();
     JSONObject carousel = pin.optJSONObject("carousel_data");
@@ -106,7 +106,7 @@ public final class PinterestResolver {
       Variant variant = new Variant(url, "Original image", mimeType(url), 0, 0, 0);
       media.add(new Media("photo", Collections.singletonList(variant), preview(url), 0));
     }
-    if (media.isEmpty()) throw new IOException("This Pinterest pin has no downloadable image.");
+    if (media.isEmpty()) throw new UserError(ErrorCode.PINTEREST_NO_IMAGE);
     JSONObject pinner = pin.optJSONObject("pinner");
     String username = pinner == null ? "" : pinner.optString("username", "");
     String title = pin.optString("title", "").trim();

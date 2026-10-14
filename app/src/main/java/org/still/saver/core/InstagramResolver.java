@@ -50,14 +50,14 @@ public final class InstagramResolver {
       PublicPages.checkCancelled();
       if (reply.status >= 300 && reply.status < 400) {
         String next = redirect(page, reply.location);
-        if (redirects == 3) throw new IOException("Instagram sent too many redirects.");
+        if (redirects == 3) throw new UserError(ErrorCode.INSTAGRAM_TOO_MANY_REDIRECTS);
         page = next;
         continue;
       }
       if (reply.status == 429) throw rateLimited();
-      if (reply.status == 404) throw new IOException("This Instagram post is deleted or unavailable.");
+      if (reply.status == 404) throw new UserError(ErrorCode.UNAVAILABLE, Platforms.INSTAGRAM.name);
       if (reply.status != 200)
-        throw new IOException("Could not load this Instagram post (status " + reply.status + ").");
+        throw new UserError(ErrorCode.STATUS, Platforms.INSTAGRAM.name, reply.status);
       return parse(reply.body, link[0], link[1]);
     }
   }
@@ -66,21 +66,17 @@ public final class InstagramResolver {
   private static String redirect(String page, String location) throws IOException {
     URI next = PublicPages.redirect(page, location);
     if (next == null || !"www.instagram.com".equalsIgnoreCase(next.getHost()))
-      throw new IOException("Instagram redirected away from this post.");
+      throw new UserError(ErrorCode.INSTAGRAM_REDIRECTED_AWAY);
     String path = next.getRawPath() == null ? "" : next.getRawPath();
     if (path.startsWith("/accounts/login") || path.equals("/") || path.isEmpty())
-      throw new IOException(
-          "Instagram is asking this network to log in. Wait a few minutes and try again; private"
-              + " posts cannot be saved.");
+      throw new UserError(ErrorCode.INSTAGRAM_LOGIN_WALL);
     if (!POST_PATH.matcher(path).matches())
-      throw new IOException("Instagram redirected away from this post.");
+      throw new UserError(ErrorCode.INSTAGRAM_REDIRECTED_AWAY);
     return next.toString();
   }
 
   private static IOException rateLimited() {
-    return new IOException(
-        "Instagram is limiting anonymous requests from this network. Wait a few minutes and try"
-            + " again.");
+    return new UserError(ErrorCode.INSTAGRAM_LIMITED);
   }
 
   static Post parse(String html, String source, String shortcode) throws IOException {
@@ -94,18 +90,14 @@ public final class InstagramResolver {
       try {
         record = find(new JSONObject(script), shortcode, 0);
       } catch (JSONException e) {
-        throw new IOException("Instagram returned an unexpected page.", e);
+        throw new UserError(e, ErrorCode.INSTAGRAM_UNEXPECTED);
       }
       if (record == null) continue;
       media = record.optJSONObject("if_not_gated_logged_out");
       gated = media == null;
     }
     if (media == null)
-      throw new IOException(
-          gated
-              ? "Instagram requires login for this post. Only public posts can be saved."
-              : "Instagram did not include this post. It may be private or deleted, or Instagram"
-                  + " is limiting this network; try again in a few minutes.");
+      throw new UserError(gated ? ErrorCode.INSTAGRAM_LOGIN_REQUIRED : ErrorCode.INSTAGRAM_MISSING);
     List<JSONObject> items = new ArrayList<>();
     JSONArray carousel = media.optJSONArray("carousel_media");
     for (int i = 0; carousel != null && i < carousel.length() && items.size() < 20; i++) {
@@ -119,7 +111,7 @@ public final class InstagramResolver {
       if (attachment != null) attachments.add(attachment);
     }
     if (attachments.isEmpty())
-      throw new IOException("This Instagram post has no downloadable photo or video.");
+      throw new UserError(ErrorCode.INSTAGRAM_NO_MEDIA);
     JSONObject user = media.optJSONObject("user");
     String username = user == null ? "" : user.optString("username", "");
     String author = username.isEmpty() ? "" : "@" + username;
@@ -227,9 +219,9 @@ public final class InstagramResolver {
   /** Returns {canonical source URL, shortcode}; tracking parameters are dropped. */
   static String[] link(String input) throws IOException {
     URI uri = URI.create(PublicLinkParser.parse(input));
-    if (!handles(uri.toString())) throw new IOException("Use a public Instagram post link.");
+    if (!handles(uri.toString())) throw new UserError(ErrorCode.INSTAGRAM_LINK);
     Matcher path = POST_PATH.matcher(uri.getRawPath());
-    if (!path.matches()) throw new IOException("Use a public Instagram post link.");
+    if (!path.matches()) throw new UserError(ErrorCode.INSTAGRAM_LINK);
     String kind = path.group(1).startsWith("reel") ? "reel" : path.group(1);
     return new String[] {HOME + kind + "/" + path.group(2) + "/", path.group(2)};
   }

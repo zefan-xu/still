@@ -8,6 +8,7 @@ import android.app.Instrumentation;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -22,6 +23,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONArray;
@@ -29,7 +31,9 @@ import org.json.JSONObject;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.still.saver.core.ErrorCode;
 import org.still.saver.core.Media;
+import org.still.saver.core.Platforms;
 import org.still.saver.core.Post;
 import org.still.saver.core.Variant;
 
@@ -38,6 +42,23 @@ import org.still.saver.core.Variant;
 public final class DeviceRegressionTest {
   private Context context() {
     return InstrumentationRegistry.getInstrumentation().getTargetContext();
+  }
+
+  @Test
+  public void everyCoreCodeHasItsNamedString() {
+    Resources res = context().getResources();
+    for (ErrorCode code : ErrorCode.values())
+      assertEquals(
+          "error_" + code.name().toLowerCase(Locale.ROOT),
+          res.getResourceEntryName(CoreText.message(code)));
+    for (Platforms.Kind kind : Platforms.Kind.values())
+      assertEquals(
+          "home_match_" + kind.name().toLowerCase(Locale.ROOT),
+          res.getResourceEntryName(CoreText.kind(kind)));
+    for (Platforms.Platform platform : Platforms.ALL)
+      assertEquals(
+          "links_" + platform.name.toLowerCase(Locale.ROOT) + "_summary",
+          res.getResourceEntryName(CoreText.summary(platform)));
   }
 
   @Test

@@ -42,7 +42,7 @@ public final class BlueskyResolver {
             PublicPages.accept("application/json"));
     PublicPages.checkCancelled();
     if (reply.status == 400 && reply.body.contains("NotFound"))
-      throw new IOException("This Bluesky post is deleted or unavailable.");
+      throw new UserError(ErrorCode.UNAVAILABLE, Platforms.BLUESKY.name);
     PublicPages.checkStatus(reply, "Bluesky");
     return parse(reply.body, link[1]);
   }
@@ -53,10 +53,10 @@ public final class BlueskyResolver {
       JSONObject thread = new JSONObject(json).getJSONObject("thread");
       String type = thread.optString("$type");
       if (type.endsWith("#notFoundPost") || type.endsWith("#blockedPost"))
-        throw new IOException("This Bluesky post is deleted or unavailable.");
+        throw new UserError(ErrorCode.UNAVAILABLE, Platforms.BLUESKY.name);
       post = thread.getJSONObject("post");
     } catch (JSONException e) {
-      throw new IOException("Bluesky returned an unexpected response.", e);
+      throw new UserError(e, ErrorCode.BLUESKY_UNEXPECTED);
     }
     JSONObject embed = post.optJSONObject("embed");
     if (embed != null && embed.optString("$type").endsWith("recordWithMedia#view"))
@@ -64,7 +64,7 @@ public final class BlueskyResolver {
     String type = embed == null ? "" : embed.optString("$type");
     if (type.endsWith("video#view")) return null;
     if (!type.endsWith("images#view"))
-      throw new IOException("This Bluesky post has no photo or video.");
+      throw new UserError(ErrorCode.BLUESKY_NO_MEDIA);
     List<Media> media = new ArrayList<>();
     JSONArray images = embed.optJSONArray("images");
     for (int i = 0; images != null && i < images.length() && media.size() < 20; i++) {
@@ -80,7 +80,7 @@ public final class BlueskyResolver {
               cdn(thumb) && LinkParser.safePreviewUri(thumb) != null ? thumb : null,
               0));
     }
-    if (media.isEmpty()) throw new IOException("This Bluesky post has no downloadable photo.");
+    if (media.isEmpty()) throw new UserError(ErrorCode.BLUESKY_NO_PHOTO);
     JSONObject author = post.optJSONObject("author");
     String handle = author == null ? "" : author.optString("handle", "");
     JSONObject record = post.optJSONObject("record");
@@ -113,7 +113,7 @@ public final class BlueskyResolver {
     URI uri = URI.create(PublicLinkParser.parse(input));
     Matcher path = POST_PATH.matcher(uri.getRawPath());
     if (!handles(uri.toString()) || !path.matches())
-      throw new IOException("Use a public Bluesky post link.");
+      throw new UserError(ErrorCode.BLUESKY_LINK);
     return new String[] {path.group(1), path.group(2)};
   }
 

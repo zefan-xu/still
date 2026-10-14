@@ -66,10 +66,10 @@ public final class LiveMetaAvailabilityTest {
           new PublicPageResolver(context, "https://api.fxtwitter.com").resolve(source);
           fail("Expected a public availability error for " + source);
         } catch (IOException error) {
-          result.put("message", error.getMessage());
-          if (!error.getMessage().contains(expected))
-            result.put("category", LiveFailure.category(error));
-          assertTrue(error.getMessage(), error.getMessage().contains(expected));
+          String message = CoreText.message(context, error, R.string.save_lookup_failed);
+          result.put("message", message);
+          if (!message.contains(expected)) result.put("category", LiveFailure.category(error));
+          assertTrue(message, message.contains(expected));
           if (reportName.startsWith("facebook"))
             assertTrue(error instanceof FacebookEmbedParser.UnavailableException);
           result.put("passed", true);

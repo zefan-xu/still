@@ -23,7 +23,7 @@ final class SupportedLinks {
       row.setPadding(ui.dp(24), ui.dp(10), ui.dp(24), ui.dp(10));
       TextView name = ui.label(platform.name, 16);
       row.addView(name);
-      TextView kinds = ui.secondary(platform.kinds);
+      TextView kinds = ui.secondary(CoreText.summary(ui.activity, platform));
       kinds.setTextSize(14);
       row.addView(kinds);
       TextView shapes = ui.caption(TextUtils.join("  ·  ", platform.examples));
@@ -37,7 +37,8 @@ final class SupportedLinks {
     TextView header = ui.sectionHeader(ui.activity.getString(R.string.links_unsupported_title));
     header.setPadding(ui.dp(24), ui.dp(20), ui.dp(24), ui.dp(6));
     box.addView(header);
-    for (String limit : Platforms.LIMITS) {
+    for (int resource : CoreText.LIMITS) {
+      String limit = ui.activity.getString(resource);
       TextView line = ui.secondary("·  " + limit);
       line.setTextSize(14);
       line.setContentDescription(limit);

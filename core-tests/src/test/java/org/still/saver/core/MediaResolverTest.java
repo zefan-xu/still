@@ -324,7 +324,7 @@ public class MediaResolverTest {
         new MediaResolver(base);
         fail("Accepted API base: " + base);
       } catch (IllegalArgumentException expected) {
-        assertTrue(expected.getMessage().contains("HTTPS"));
+        assertTrue(English.message(expected).contains("HTTPS"));
       }
     }
   }
@@ -423,7 +423,7 @@ public class MediaResolverTest {
       resolver.resolve(POST_LINK);
       fail("Expected error containing: " + expected);
     } catch (IOException error) {
-      assertTrue(error.getMessage(), error.getMessage().contains(expected));
+      assertTrue(English.message(error), English.message(error).contains(expected));
     }
   }
 }

@@ -51,10 +51,9 @@ public final class ThreadsEmbedResolver {
     Elements targets = document.select(".OuterContainerFull");
     if (!matching || targets.size() != 1) {
       if (document.body().text().toLowerCase(Locale.ROOT).contains("thread not available")) {
-        throw new IOException(
-            "Threads says this post is unavailable. It may be deleted or restricted.");
+        throw new UserError(ErrorCode.THREADS_UNAVAILABLE);
       }
-      throw new IOException("Threads did not provide a public video embed for this post.");
+      throw new UserError(ErrorCode.THREADS_NO_EMBED);
     }
     Element target = targets.first();
     List<Media> media = new ArrayList<>();
@@ -85,9 +84,7 @@ public final class ThreadsEmbedResolver {
       if (media.size() >= 20) break;
     }
     if (media.isEmpty())
-      throw new IOException(
-          "This public Threads post has no downloadable photo or video. Text-only posts have"
-              + " nothing to save.");
+      throw new UserError(ErrorCode.THREADS_NO_MEDIA);
     Element caption = target.selectFirst(".TextContentContainerFull .BodyTextContainer");
     String title = caption == null ? "" : caption.text().trim();
     if (title.isEmpty()) title = "Threads post by " + author;
@@ -137,7 +134,7 @@ public final class ThreadsEmbedResolver {
         || "www.threads.com".equals(host)
         || "threads.net".equals(host)
         || "www.threads.net".equals(host)))
-      throw new IOException("Use a public Threads post link.");
+      throw new UserError(ErrorCode.THREADS_LINK);
     String path = uri.getRawPath();
     if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
     int authorEnd = path.indexOf('/', 1);

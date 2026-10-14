@@ -110,7 +110,7 @@ public class LinkParserTest {
       LinkParser.parse(input);
       fail("Accepted unsupported link: " + input);
     } catch (IOException expected) {
-      assertFalse(expected.getMessage().isEmpty());
+      assertFalse(English.message(expected).isEmpty());
     }
   }
 }

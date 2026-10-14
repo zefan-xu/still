@@ -16,7 +16,7 @@ final class PublicEmbedTransport implements MediaResolver.Transport {
   @Override
   public MediaResolver.Response get(String url) throws IOException {
     URI initial = LinkParser.safeHttpsUri(url);
-    if (!allowed(initial)) throw new IOException("Invalid public embed URL.");
+    if (!allowed(initial)) throw new UserError(ErrorCode.EMBED_INVALID_URL);
     URI current = initial;
     long deadline = System.nanoTime() + 45_000_000_000L;
     for (int redirects = 0; redirects <= 3; redirects++) {
@@ -42,17 +42,17 @@ final class PublicEmbedTransport implements MediaResolver.Transport {
                     ? null
                     : LinkParser.safeHttpsUri(current.resolve(location).toString());
           } catch (IllegalArgumentException error) {
-            throw new IOException("Invalid public embed redirect.", error);
+            throw new UserError(error, ErrorCode.EMBED_INVALID_REDIRECT);
           }
           if (!sameEmbed(initial, next))
-            throw new IOException("The public embed redirected away from this post.");
-          if (redirects == 3) throw new IOException("Too many public embed redirects.");
+            throw new UserError(ErrorCode.EMBED_REDIRECTED_AWAY);
+          if (redirects == 3) throw new UserError(ErrorCode.EMBED_TOO_MANY_REDIRECTS);
           current = next;
           continue;
         }
         if (status != 200) return new MediaResolver.Response(status, "");
         if (connection.getContentLengthLong() > MAX_BODY_BYTES)
-          throw new IOException("The public embed response is too large.");
+          throw new UserError(ErrorCode.EMBED_TOO_LARGE);
         try (InputStream input = connection.getInputStream();
             ByteArrayOutputStream body = new ByteArrayOutputStream()) {
           byte[] buffer = new byte[8192];
@@ -66,7 +66,7 @@ final class PublicEmbedTransport implements MediaResolver.Transport {
             if (read == -1) break;
             total += read;
             if (total > MAX_BODY_BYTES)
-              throw new IOException("The public embed response is too large.");
+              throw new UserError(ErrorCode.EMBED_TOO_LARGE);
             body.write(buffer, 0, read);
           }
           return new MediaResolver.Response(
@@ -76,23 +76,22 @@ final class PublicEmbedTransport implements MediaResolver.Transport {
         connection.disconnect();
       }
     }
-    throw new IOException("Too many public embed redirects.");
+    throw new UserError(ErrorCode.EMBED_TOO_MANY_REDIRECTS);
   }
 
   static void checkBody(MediaResolver.Response response, String platform) throws IOException {
-    if (response == null) throw new IOException("The public embed returned an empty response.");
+    if (response == null) throw new UserError(ErrorCode.EMBED_EMPTY);
     if (response.statusCode == 429)
-      throw new IOException(platform + " is rate limited. Wait a moment and try again.");
+      throw new UserError(ErrorCode.RATE_LIMITED, platform);
     if (response.statusCode == 401 || response.statusCode == 403)
-      throw new IOException("This " + platform + " post requires login or is restricted.");
+      throw new UserError(ErrorCode.LOGIN_REQUIRED, platform);
     if (response.statusCode == 404 || response.statusCode == 410)
-      throw new IOException("This " + platform + " post is deleted or unavailable.");
+      throw new UserError(ErrorCode.UNAVAILABLE, platform);
     if (response.statusCode != 200)
-      throw new IOException(
-          "Could not load the public " + platform + " embed (status " + response.statusCode + ").");
+      throw new UserError(ErrorCode.EMBED_STATUS, platform, response.statusCode);
     if (response.body.length() > MAX_BODY_BYTES
         || response.body.getBytes(StandardCharsets.UTF_8).length > MAX_BODY_BYTES)
-      throw new IOException("The public embed response is too large.");
+      throw new UserError(ErrorCode.EMBED_TOO_LARGE);
   }
 
   static boolean sameEmbed(URI initial, URI next) {
@@ -124,12 +123,12 @@ final class PublicEmbedTransport implements MediaResolver.Transport {
 
   private static void checkCancelled() throws IOException {
     if (Thread.currentThread().isInterrupted())
-      throw new IOException("Media extraction was cancelled.");
+      throw new UserError(ErrorCode.CANCELLED);
   }
 
   private static int remainingTimeout(long deadline, int maximum) throws IOException {
     long remaining = (deadline - System.nanoTime()) / 1_000_000;
-    if (remaining <= 0) throw new IOException("The public embed request timed out. Try again.");
+    if (remaining <= 0) throw new UserError(ErrorCode.EMBED_TIMEOUT);
     return (int) Math.min(remaining, maximum);
   }
 }

@@ -54,10 +54,10 @@ public final class LinkParser {
   /** Accepts a URL or ordinary share text containing a URL. */
   public static Parsed parse(String input) throws IOException {
     if (input == null || input.trim().isEmpty()) {
-      throw new IOException("Paste a public X or Twitter post link first.");
+      throw new UserError(ErrorCode.X_LINK_EMPTY);
     }
-    if (input.length() > 8192) throw new IOException("The pasted link is too long.");
-    if (hasForbiddenScheme(input)) throw new IOException("Use an HTTPS public post link.");
+    if (input.length() > 8192) throw new UserError(ErrorCode.LINK_TOO_LONG);
+    if (hasForbiddenScheme(input)) throw new UserError(ErrorCode.LINK_NOT_HTTPS);
     Matcher links = LINKS.matcher(input);
     while (links.find()) {
       String candidate = links.group();
@@ -69,7 +69,7 @@ public final class LinkParser {
       Parsed parsed = parseUrl(candidate);
       if (parsed != null) return parsed;
     }
-    throw new IOException("Use an HTTPS X or Twitter post link, or a direct Twitter media link.");
+    throw new UserError(ErrorCode.X_LINK_UNSUPPORTED);
   }
 
   private static Parsed parseUrl(String url) {

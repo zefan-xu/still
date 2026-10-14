@@ -52,7 +52,7 @@ public class PhotoResolversTest {
       BlueskyResolver.parse(bluesky("app.bsky.embed.external#view", null), "r");
       fail("A link card has nothing to save");
     } catch (IOException e) {
-      assertTrue(e.getMessage().contains("no photo or video"));
+      assertTrue(English.message(e).contains("no photo or video"));
     }
     try {
       BlueskyResolver.parse(
@@ -62,7 +62,7 @@ public class PhotoResolversTest {
           "r");
       fail("Deleted posts are unavailable");
     } catch (IOException e) {
-      assertTrue(e.getMessage().contains("deleted"));
+      assertTrue(English.message(e).contains("deleted"));
     }
   }
 
@@ -133,7 +133,7 @@ public class PhotoResolversTest {
       away.resolve("https://pin.it/abc");
       fail("Redirects must stay on Pinterest");
     } catch (IOException e) {
-      assertTrue(e.getMessage().contains("does not lead to a pin"));
+      assertTrue(English.message(e).contains("does not lead to a pin"));
     }
   }
 
@@ -186,14 +186,14 @@ public class PhotoResolversTest {
       away.photoLink("https://vm.tiktok.com/ZMabc/");
       fail("Short links must stay on TikTok");
     } catch (IOException e) {
-      assertTrue(e.getMessage().contains("away from TikTok"));
+      assertTrue(English.message(e).contains("away from TikTok"));
     }
     JSONObject gone = new JSONObject().put("statusCode", 10204);
     try {
       TikTokPhotoResolver.parse(page(gone), "maker", "749");
       fail("Unavailable posts fail plainly");
     } catch (IOException e) {
-      assertTrue(e.getMessage().contains("unavailable"));
+      assertTrue(English.message(e).contains("unavailable"));
     }
   }
 

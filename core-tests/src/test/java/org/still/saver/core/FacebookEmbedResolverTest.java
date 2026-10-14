@@ -49,7 +49,7 @@ public class FacebookEmbedResolverTest {
         resolver.resolve(link);
         fail("Expected rejection: " + link);
       } catch (IOException expected) {
-        assertTrue(expected.getMessage().contains("numeric ID"));
+        assertTrue(English.message(expected).contains("numeric ID"));
       }
     }
     assertEquals(0, calls.get());
@@ -61,7 +61,7 @@ public class FacebookEmbedResolverTest {
       new FacebookEmbedResolver(url -> new MediaResolver.Response(429, HTML)).resolve(LINK);
       fail("Accepted rate limited response");
     } catch (IOException expected) {
-      assertTrue(expected.getMessage().contains("rate limited"));
+      assertTrue(English.message(expected).contains("rate limited"));
     }
   }
 }

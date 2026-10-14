@@ -33,13 +33,13 @@ public final class ExtractorJsonParser {
     if (json == null
         || json.length() > MAX_BYTES
         || json.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
-      throw new IOException("The extractor response is empty or too large.");
+      throw new UserError(ErrorCode.EXTRACTOR_EMPTY);
     }
     JSONObject root;
     try {
       root = new JSONObject(json);
     } catch (JSONException e) {
-      throw new IOException("The extractor returned unreadable media information.", e);
+      throw new UserError(e, ErrorCode.EXTRACTOR_UNREADABLE);
     }
     Map<String, Media> attachments = new LinkedHashMap<>();
     collect(root, attachments, 0, "", device);
@@ -47,13 +47,10 @@ public final class ExtractorJsonParser {
       if (YOUTUBE.equalsIgnoreCase(firstString(root, "extractor_key", "extractor"))) {
         String live = root.optString("live_status", "");
         if ("is_live".equals(live) || "is_upcoming".equals(live) || "post_live".equals(live))
-          throw new IOException(
-              "This YouTube video is live or still processing. Try again after the stream ends.");
-        throw new IOException("YouTube offers no version of this video that this phone can save.");
+          throw new UserError(ErrorCode.YOUTUBE_LIVE);
+        throw new UserError(ErrorCode.YOUTUBE_NO_FORMAT);
       }
-      throw new IOException(
-          "This post has no downloadable complete video file. It may require login or use a"
-              + " streaming-only format.");
+      throw new UserError(ErrorCode.NO_COMPLETE_VIDEO);
     }
     String title = firstString(root, "title", "description");
     if (title.isEmpty()) title = "Public post media";

@@ -117,7 +117,7 @@ public class PublicLinkParserTest {
         PublicLinkParser.parse(url);
         fail("Accepted: " + url);
       } catch (IOException expected) {
-        assertFalse(expected.getMessage().isEmpty());
+        assertFalse(English.message(expected).isEmpty());
       }
     }
   }
