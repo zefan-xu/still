@@ -160,21 +160,25 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28));
     markParams.setMarginEnd(ui.dp(8));
     header.addView(mark, markParams);
-    TextView wordmark = ui.title("Still", 28);
+    TextView wordmark = ui.title(getString(R.string.app_name), 28);
     wordmark.setTypeface(org.still.saver.ui.Fonts.display(this));
     if (android.os.Build.VERSION.SDK_INT >= 28) wordmark.setAccessibilityHeading(true);
     header.addView(wordmark, new LinearLayout.LayoutParams(0, -2, 1));
-    header.addView(ui.iconButton(R.drawable.ic_search, "Search", () -> setSearching(true)));
+    header.addView(
+        ui.iconButton(
+            R.drawable.ic_search,
+            getString(R.string.home_search_description),
+            () -> setSearching(true)));
     header.addView(
         ui.iconButton(
             R.drawable.ic_settings,
-            "Settings",
+            getString(R.string.settings_title),
             () -> startActivity(new Intent(this, SettingsActivity.class))));
     content.addView(header);
 
     searchBar = ui.row();
     searchBar.setPadding(ui.dp(16), ui.dp(8), ui.dp(8), ui.dp(4));
-    search = ui.field("Search saved files");
+    search = ui.field(getString(R.string.home_search_hint));
     search.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
     search.addTextChangedListener(
         watcher(
@@ -183,7 +187,11 @@ public final class MainActivity extends Activity implements SaveSession.Host {
               refreshNow();
             }));
     searchBar.addView(search, new LinearLayout.LayoutParams(0, -2, 1));
-    searchBar.addView(ui.iconButton(R.drawable.ic_close, "Close search", () -> setSearching(false)));
+    searchBar.addView(
+        ui.iconButton(
+            R.drawable.ic_close,
+            getString(R.string.home_close_search_description),
+            () -> setSearching(false)));
     searchBar.setVisibility(View.GONE);
     content.addView(searchBar);
 
@@ -201,7 +209,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
             0.12f,
             p -> boxBackground.setStroke(ring, Theme.mix(theme.raised, theme.ink, p)));
     input = new EditText(this);
-    input.setHint("Paste a link");
+    input.setHint(R.string.home_link_hint);
     input.setTextColor(theme.ink);
     input.setHintTextColor(theme.tertiary);
     input.setTextSize(16);
@@ -244,9 +252,10 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     statusText = ui.caption("");
     statusText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
     statusRow.addView(statusText, new LinearLayout.LayoutParams(0, -2, 1));
-    statusCancel = ui.quietButton("Cancel", () -> session.cancelLookup());
+    statusCancel =
+        ui.quietButton(getString(R.string.action_cancel), () -> session.cancelLookup());
     statusRow.addView(statusCancel);
-    statusLinks = ui.quietButton("Supported links", this::showSupportedLinks);
+    statusLinks = ui.quietButton(getString(R.string.links_title), this::showSupportedLinks);
     statusRow.addView(statusLinks);
     status.addView(statusRow);
     status.setVisibility(View.GONE);
@@ -327,10 +336,12 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   /** Paste while the field is empty; an arrow to find media once there is a link. */
   private View trailing() {
     FrameLayout frame = new FrameLayout(this);
-    paste = ui.quietButton("Paste", this::paste);
-    paste.setContentDescription("Paste");
+    paste = ui.quietButton(getString(R.string.home_paste), this::paste);
+    paste.setContentDescription(getString(R.string.home_paste));
     frame.addView(paste, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-    go = ui.iconButton(R.drawable.ic_arrow_forward, "Find media", this::find);
+    go =
+        ui.iconButton(
+            R.drawable.ic_arrow_forward, getString(R.string.home_find_description), this::find);
     go.setImageTintList(android.content.res.ColorStateList.valueOf(theme.onInk));
     GradientDrawable circle = new GradientDrawable();
     circle.setShape(GradientDrawable.OVAL);
@@ -384,29 +395,31 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     hintState = state;
     Drawable dot = null;
     if (state.isEmpty()) {
-      String see = "See all";
-      SpannableString idle =
-          new SpannableString("Works with " + Platforms.names("and") + " · " + see);
-      int start = idle.length() - see.length();
+      String see = getString(R.string.home_hint_see_all);
+      String names = Platforms.names(getString(R.string.list_and));
+      SpannableString idle = new SpannableString(getString(R.string.home_hint_idle, names, see));
+      int start = idle.toString().lastIndexOf(see);
       idle.setSpan(
-          new ForegroundColorSpan(theme.ink), start, idle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+          new ForegroundColorSpan(theme.ink),
+          start,
+          start + see.length(),
+          Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
       hint.setText(idle);
       hint.setTextColor(theme.tertiary);
-      hint.setContentDescription(
-          "Works with " + Platforms.names("and") + ". See all supported links");
+      hint.setContentDescription(getString(R.string.home_hint_idle_description, names));
     } else if (match != null) {
-      hint.setText(match.label() + " · ready");
+      hint.setText(getString(R.string.home_hint_ready, match.label()));
       hint.setTextColor(theme.secondary);
-      hint.setContentDescription(match.label() + ", ready");
+      hint.setContentDescription(getString(R.string.home_hint_ready_description, match.label()));
       GradientDrawable accent = new GradientDrawable();
       accent.setShape(GradientDrawable.OVAL);
       accent.setColor(theme.accentStrong);
       accent.setBounds(0, 0, ui.dp(6), ui.dp(6));
       dot = accent;
     } else {
-      hint.setText("Not a supported link");
+      hint.setText(R.string.home_hint_unsupported);
       hint.setTextColor(theme.tertiary);
-      hint.setContentDescription("Not a supported link. See supported links");
+      hint.setContentDescription(getString(R.string.home_hint_unsupported_description));
     }
     hint.setCompoundDrawablesRelative(dot, null, null, null);
     if (fade) {
@@ -441,7 +454,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
     ClipData clip = clipboard.getPrimaryClip();
     if (clip == null || clip.getItemCount() == 0) {
-      showStatus("Copy a post link first.", false, true);
+      showStatus(getString(R.string.home_paste_empty), false, true);
       return;
     }
     input.setText(clip.getItemAt(0).coerceToText(this));
@@ -473,7 +486,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   public void onSessionChanged(SaveSession s) {
     switch (s.phase()) {
       case LOOKING_UP:
-        showStatus("Looking up post…", true, false);
+        showStatus(getString(R.string.home_looking_up), true, false);
         hideResults();
         break;
       case ERROR:
@@ -493,8 +506,8 @@ public final class MainActivity extends Activity implements SaveSession.Host {
         showStatus(null, false, false);
         snackbar.show(
             s.added() == 0
-                ? "This media is already downloading."
-                : "Added · " + org.still.saver.ui.Format.count(s.added(), "item"));
+                ? getString(R.string.home_already_downloading)
+                : getResources().getQuantityString(R.plurals.home_added, s.added(), s.added()));
         input.setText("");
         s.reset();
         refreshNow();
@@ -567,7 +580,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
       items.add(
           new LibraryModel.Item(
               LibraryAdapter.GIF_KEY,
-              "Making a GIF",
+              getString(R.string.library_gif_making),
               "",
               "image/gif",
               System.currentTimeMillis(),
@@ -580,7 +593,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
       items.add(
           new LibraryModel.Item(
               LibraryAdapter.GIF_KEY,
-              "GIF not saved",
+              getString(R.string.library_gif_failed),
               "",
               "image/gif",
               System.currentTimeMillis(),
@@ -594,7 +607,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
               ? LibraryModel.State.SAVED
               : e.active() ? LibraryModel.State.ACTIVE : LibraryModel.State.FAILED;
       int progress = e.total > 0 ? (int) Math.min(100, e.bytes * 100 / e.total) : -1;
-      String detail = e.description();
+      String detail = e.description(this);
       if (state == LibraryModel.State.ACTIVE && e.total > 0)
         detail += " · " + org.still.saver.ui.Format.size(e.total);
       items.add(

@@ -135,10 +135,27 @@ final class LibraryAdapter extends BaseAdapter {
     }
   }
 
-  private View header(String text) {
-    TextView view = ui.sectionHeader(text);
+  private View header(String section) {
+    TextView view = ui.sectionHeader(ui.activity.getString(sectionTitle(section)));
     view.setPadding(ui.dp(24), ui.dp(24), ui.dp(24), ui.dp(10));
     return view;
+  }
+
+  private static int sectionTitle(String section) {
+    switch (section) {
+      case LibraryModel.SECTION_PROGRESS:
+        return R.string.library_section_progress;
+      case LibraryModel.SECTION_TODAY:
+        return R.string.library_section_today;
+      case LibraryModel.SECTION_WEEK:
+        return R.string.library_section_week;
+      case LibraryModel.SECTION_EARLIER:
+        return R.string.library_section_earlier;
+      case LibraryModel.SECTION_SAVED:
+        return R.string.library_section_saved;
+      default:
+        throw new IllegalArgumentException("Unknown library section: " + section);
+    }
   }
 
   /**
@@ -151,7 +168,7 @@ final class LibraryAdapter extends BaseAdapter {
     box.setTag(kind);
     if (LibraryModel.EMPTY_SEARCH.equals(kind)) {
       box.setPadding(ui.dp(24), ui.dp(40), ui.dp(24), ui.dp(24));
-      box.addView(ui.title("No files match this search.", 20));
+      box.addView(ui.title(ui.activity.getString(R.string.library_search_empty), 20));
       return box;
     }
     box.setPadding(ui.dp(24), ui.dp(16), ui.dp(24), ui.dp(24));
@@ -168,17 +185,18 @@ final class LibraryAdapter extends BaseAdapter {
     figureParams.gravity = Gravity.CENTER_HORIZONTAL;
     box.addView(figure, 0, figureParams);
     ui.gap(box, 12);
-    box.addView(ui.display("Nothing saved yet."));
+    box.addView(ui.display(ui.activity.getString(R.string.library_empty_title)));
     ui.gap(box, 10);
-    box.addView(ui.secondary("Share a post to Still from any app, or paste a link above."));
+    box.addView(ui.secondary(ui.activity.getString(R.string.library_empty_body)));
     ui.gap(box, 18);
     box.addView(
         ui.caption(
-            "Works with public posts on "
-                + Platforms.names("and")
-                + ". Files stay on this device."));
+            ui.activity.getString(
+                R.string.library_empty_platforms,
+                Platforms.names(ui.activity.getString(R.string.list_and)))));
     ui.gap(box, 6);
-    TextView links = ui.quietButton("See supported links", callbacks::supportedLinks);
+    TextView links =
+        ui.quietButton(ui.activity.getString(R.string.links_see), callbacks::supportedLinks);
     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
     params.setMarginStart(-ui.dp(14));
     box.addView(links, params);
@@ -242,19 +260,32 @@ final class LibraryAdapter extends BaseAdapter {
     row.addView(texts, new LinearLayout.LayoutParams(0, -2, 1));
     if (gif) {
       if (item.state == LibraryModel.State.ACTIVE) {
-        TextView cancel = ui.quietButton("Cancel", callbacks::cancelGif);
-        cancel.setContentDescription("Cancel GIF export");
+        TextView cancel =
+            ui.quietButton(ui.activity.getString(R.string.action_cancel), callbacks::cancelGif);
+        cancel.setContentDescription(
+            ui.activity.getString(R.string.library_cancel_gif_description));
         row.addView(cancel);
       } else
-        row.addView(ui.iconButton(R.drawable.ic_close, "Dismiss", callbacks::dismissGif));
+        row.addView(
+            ui.iconButton(
+                R.drawable.ic_close,
+                ui.activity.getString(R.string.library_dismiss_description),
+                callbacks::dismissGif));
       return row;
     }
     if (entry == null) return row;
-    if (entry.active()) row.addView(ui.quietButton("Cancel", () -> callbacks.inline(entry)));
-    else if (entry.id != 0) row.addView(ui.quietButton("Retry", () -> callbacks.inline(entry)));
+    if (entry.active())
+      row.addView(
+          ui.quietButton(
+              ui.activity.getString(R.string.action_cancel), () -> callbacks.inline(entry)));
+    else if (entry.id != 0)
+      row.addView(
+          ui.quietButton(
+              ui.activity.getString(R.string.action_retry), () -> callbacks.inline(entry)));
     row.setBackground(ui.ripple(null, ui.shape(ui.theme.ink, 0, 0)));
     row.setOnClickListener(v -> callbacks.menu(entry));
-    row.setContentDescription(item.name() + ", " + item.status);
+    row.setContentDescription(
+        ui.activity.getString(R.string.library_row_description, item.name(), item.status));
     return row;
   }
 
@@ -362,7 +393,7 @@ final class LibraryAdapter extends BaseAdapter {
       cell.setContentDescription(item.name());
       TextView badge = holder.badges[i];
       boolean gif = "image/gif".equals(item.mime);
-      badge.setText(gif ? "GIF" : "");
+      badge.setText(gif ? ui.activity.getString(R.string.library_gif_badge) : "");
       badge.setVisibility(gif ? View.VISIBLE : View.GONE);
       if (entry == null || entry.uri == null) continue;
       Uri uri = entry.uri;
@@ -414,7 +445,7 @@ final class LibraryAdapter extends BaseAdapter {
     row.addView(
         ui.iconButton(
             R.drawable.ic_more_horiz,
-            "More actions for " + item.name(),
+            ui.activity.getString(R.string.library_more_description, item.name()),
             () -> callbacks.menu(entry)));
     row.setBackground(ui.ripple(null, ui.shape(ui.theme.ink, 0, 0)));
     row.setOnClickListener(

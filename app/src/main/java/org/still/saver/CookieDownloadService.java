@@ -229,7 +229,9 @@ public final class CookieDownloadService extends Service {
               }
             }
             String label =
-                jobs.isEmpty() ? "Waiting in the download queue" : jobs.get(0).entry.description();
+                jobs.isEmpty()
+                    ? "Waiting in the download queue"
+                    : jobs.get(0).entry.description(CookieDownloadService.this);
             int progress = -1;
             if (!jobs.isEmpty() && jobs.get(0).entry.total > 0)
               progress = (int) (jobs.get(0).entry.bytes * 100 / jobs.get(0).entry.total);

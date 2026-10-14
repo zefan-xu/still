@@ -200,7 +200,7 @@ public final class LivePostDownloadTest {
       assertNotNull("Download record disappeared", current);
       if (current.status == DownloadManager.STATUS_SUCCESSFUL) return current;
       assertNotEquals(
-          "Download failed (reason " + current.reason + "): " + current.description(),
+          "Download failed (reason " + current.reason + "): " + current.description(context),
           DownloadManager.STATUS_FAILED,
           current.status);
       Thread.sleep(250);

@@ -102,7 +102,7 @@ public final class DeviceSmokeTest {
           return;
         }
         assertNotEquals(
-            "Download failed: " + current.description(),
+            "Download failed: " + current.description(c),
             DownloadManager.STATUS_FAILED,
             current.status);
         Thread.sleep(500);

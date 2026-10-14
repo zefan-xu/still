@@ -82,28 +82,33 @@ public final class DownloadStore {
           || status == DownloadManager.STATUS_PAUSED;
     }
 
-    public String description() {
-      if (unavailable)
-        return "Saved file is unavailable. Save it again or remove it from the library.";
+    public String description(Context c) {
+      if (unavailable) return c.getString(R.string.status_unavailable);
       if (!detail.isEmpty()) return detail;
-      if (id == -1) return "Queued";
-      if (id == -2) return "Could not start. Check the download folder and retry.";
+      if (id == -1) return c.getString(R.string.status_queued);
+      if (id == -2) return c.getString(R.string.status_not_started);
       if (status == DownloadManager.STATUS_SUCCESSFUL)
-        return mime.equals("image/gif") ? "GIF · Saved" : "Saved";
+        return c.getString(
+            mime.equals("image/gif") ? R.string.status_gif_saved : R.string.status_saved);
       if (status == DownloadManager.STATUS_RUNNING)
-        return total > 0 ? "Downloading · " + (bytes * 100 / total) + "%" : "Downloading";
-      if (status == DownloadManager.STATUS_PENDING) return "Starting download";
+        return total > 0
+            ? c.getString(R.string.status_downloading_percent, bytes * 100 / total)
+            : c.getString(R.string.status_downloading);
+      if (status == DownloadManager.STATUS_PENDING) return c.getString(R.string.status_starting);
       if (status == DownloadManager.STATUS_PAUSED)
-        return reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI
-            ? "Waiting for Wi-Fi"
-            : id == COOKIE_TRANSFER_ID
-                ? "Paused · Still will retry"
-                : "Paused · Android will retry";
-      if (reason == DownloadManager.ERROR_INSUFFICIENT_SPACE) return "Not enough free space";
+        return c.getString(
+            reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI
+                ? R.string.status_waiting_wifi
+                : id == COOKIE_TRANSFER_ID
+                    ? R.string.status_paused_still
+                    : R.string.status_paused_android);
+      if (reason == DownloadManager.ERROR_INSUFFICIENT_SPACE)
+        return c.getString(R.string.status_no_space);
       if (reason == DownloadManager.ERROR_FILE_ALREADY_EXISTS)
-        return "A file with this name already exists";
-      if (reason == DownloadManager.ERROR_DEVICE_NOT_FOUND) return "Storage is unavailable";
-      return "Download failed · Retry or find the media again";
+        return c.getString(R.string.status_file_exists);
+      if (reason == DownloadManager.ERROR_DEVICE_NOT_FOUND)
+        return c.getString(R.string.status_no_storage);
+      return c.getString(R.string.status_failed);
     }
   }
 
@@ -111,13 +116,13 @@ public final class DownloadStore {
     try {
       return new JSONArray(prefs(c).getString("downloads", "[]"));
     } catch (JSONException e) {
-      throw new IllegalStateException("The saved library could not be read", e);
+      throw new IllegalStateException(c.getString(R.string.library_read_error), e);
     }
   }
 
   private static void write(Context c, JSONArray a) {
     if (!prefs(c).edit().putString("downloads", a.toString()).commit())
-      throw new IllegalStateException("The library could not be saved");
+      throw new IllegalStateException(c.getString(R.string.library_write_error));
   }
 
   private static Entry inspect(Context c, JSONObject d) {
@@ -199,7 +204,7 @@ public final class DownloadStore {
         return e;
       }
     }
-    throw new IllegalStateException("This file is no longer in your library.");
+    throw new IllegalStateException(c.getString(R.string.library_missing_error));
   }
 
   public static synchronized boolean enqueue(Context c, Post post, int index, Variant v) {
@@ -284,7 +289,7 @@ public final class DownloadStore {
         String sub = folder(c);
         DownloadManager.Request r = new DownloadManager.Request(Uri.parse(d.getString("url")));
         r.setTitle(d.optString("filename"))
-            .setDescription("Saved with Still")
+            .setDescription(c.getString(R.string.status_manager_description))
             .setMimeType(d.optString("mime"))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(
@@ -333,7 +338,7 @@ public final class DownloadStore {
         if (d != null && d.optLong("id") == COOKIE_TRANSFER_ID && new Entry(d).active()) {
           try {
             d.put("customStatus", DownloadManager.STATUS_PAUSED)
-                .put("detail", "Paused · Open Still to resume");
+                .put("detail", c.getString(R.string.status_paused_open_still));
           } catch (JSONException e) {
             throw new IllegalStateException(e);
           }
@@ -359,10 +364,10 @@ public final class DownloadStore {
       if (d != null && entry.key.equals(d.optString("key"))) {
         long currentId = d.optLong("id", -1);
         if (currentId == 0)
-          throw new IllegalStateException("Save another status copy or export the GIF again.");
+          throw new IllegalStateException(c.getString(R.string.library_retry_local_error));
         Entry current = inspect(c, d);
         if (current.status == DownloadManager.STATUS_SUCCESSFUL)
-          throw new IllegalStateException("This download has finished. The saved file was kept.");
+          throw new IllegalStateException(c.getString(R.string.library_retry_finished_error));
         if (currentId > 0) manager(c).remove(currentId);
         if (currentId == COOKIE_TRANSFER_ID) {
           CookieDownloadService.cancel(entry.key, d.optString("token"));
@@ -393,8 +398,7 @@ public final class DownloadStore {
       }
       Entry current = inspect(c, d);
       if (!deleteFile && current.active())
-        throw new IllegalStateException(
-            "Cancel the active download to remove it from the library.");
+        throw new IllegalStateException(c.getString(R.string.library_remove_active_error));
       // Removing history must never call the manager's file-deleting remove API.
       if (current.id > 0 && deleteFile) deleteManagerOutput(c, current, d);
       if (current.id == COOKIE_TRANSFER_ID && deleteFile) {

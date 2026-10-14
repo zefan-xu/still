@@ -8,9 +8,6 @@ import android.os.Build;
 
 /** Android 9 and older need write access to place files in Downloads. */
 final class StoragePermission {
-  static final String DENIED =
-      "Storage access is needed to save in Downloads on this Android version.";
-
   private StoragePermission() {}
 
   /** Returns true when saving can proceed now; otherwise requests access and returns false. */
