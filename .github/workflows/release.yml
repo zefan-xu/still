@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
@@ -50,7 +50,7 @@ jobs:
 
   publish:
     needs: [plan, verify]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     permissions:
       contents: write
