@@ -3,6 +3,7 @@ package org.still.saver;
 
 import static androidx.test.espresso.Espresso.*;
 import static androidx.test.espresso.action.ViewActions.*;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
 import static org.junit.Assert.*;
 
@@ -177,6 +178,7 @@ public final class MediaWorkflowTest {
       Uri first = f.image("First photo");
       Uri second = f.video("Second video");
       Uri third = f.image("Third photo");
+      byte[] firstBytes = f.bytes(first), secondBytes = f.bytes(second);
       DownloadStore.Entry newest = DownloadStore.list(f.app).get(0);
       assertEquals(third, newest.uri);
       try (ActivityScenario<PlayerActivity> screen =
@@ -241,6 +243,39 @@ public final class MediaWorkflowTest {
               assertEquals(1, a.currentIndex());
               assertEquals(second, a.currentUri());
             });
+
+        // Swipe to the oldest image and verify the viewer Delete sheet offers both
+        // "Remove from library" (keep file) and "Delete file" (delete from device).
+        screen.onActivity(a -> swipePage(a, true));
+        screen.onActivity(a -> assertEquals(first, a.currentUri()));
+        onView(withText("Delete")).perform(click());
+        onView(withText("Remove from library")).check(matches(isDisplayed()));
+        onView(withText("Delete file")).check(matches(isDisplayed()));
+        onView(withText("Keep")).perform(click());
+        assertArrayEquals(firstBytes, f.bytes(first));
+        assertEquals(3, DownloadStore.list(f.app).size());
+
+        onView(withText("Delete")).perform(click());
+        onView(withText("Remove from library")).perform(click());
+        assertArrayEquals(firstBytes, f.bytes(first));
+        assertEquals(2, DownloadStore.list(f.app).size());
+        screen.onActivity(
+            a -> {
+              assertEquals(2, a.pageCount());
+              assertEquals(second, a.currentUri());
+            });
+
+        screen.onActivity(a -> swipePage(a, false));
+        screen.onActivity(a -> assertEquals(third, a.currentUri()));
+        onView(withText("Delete")).perform(click());
+        onView(withText("Delete file")).perform(click());
+        try {
+          f.bytes(third);
+          fail("Deleted viewer file is still readable");
+        } catch (java.io.FileNotFoundException expected) {
+        }
+        assertArrayEquals(secondBytes, f.bytes(second));
+        assertEquals(1, DownloadStore.list(f.app).size());
       }
     }
   }

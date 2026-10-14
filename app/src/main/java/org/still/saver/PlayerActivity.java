@@ -971,7 +971,7 @@ public final class PlayerActivity extends Activity {
       if (!entry.source.isEmpty())
         addAction(
             actionsRow, R.drawable.ic_open_in_new, "Original post", () -> actions.openSource(entry));
-      addAction(actionsRow, R.drawable.ic_delete, "Delete", () -> actions.confirmRemove(entry, true));
+      addAction(actionsRow, R.drawable.ic_delete, "Delete", () -> actions.promptDelete(entry));
     } else {
       actionsRow.setVisibility(View.GONE);
     }

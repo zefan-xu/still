@@ -176,7 +176,8 @@ public final class DeviceRegressionTest {
     Assume.assumeTrue(Build.VERSION.SDK_INT >= 29);
     Context c = context();
     try (LibraryFixture library = new LibraryFixture(c);
-        SavedFixture file = mediaStoreFixture(c)) {
+        SavedFixture file = mediaStoreFixture(c);
+        SavedFixture managerFile = mediaStoreFixture(c)) {
       JSONObject row = completedCookieRow(file);
       library.seed(row);
       DownloadStore.Entry saved = DownloadStore.list(c).get(0);
@@ -185,6 +186,27 @@ public final class DeviceRegressionTest {
       file.assertUnavailable();
       assertFalse(DownloadStore.finishCookie(c, saved.key, row.getString("token"), file.uri, 12));
       assertTrue(DownloadStore.list(c).isEmpty());
+
+      JSONObject managerRow =
+          new JSONObject()
+              .put("key", UUID.randomUUID().toString())
+              .put("id", 424242L)
+              .put("title", "Manager download")
+              .put("filename", managerFile.name)
+              .put("folder", "StillTests")
+              .put("mime", "video/mp4")
+              .put("url", "https://cdn.example.com/manager.mp4");
+      library.seed(managerRow);
+      DownloadStore.Entry managerSaved = DownloadStore.list(c).get(0);
+      DownloadStore.remove(c, managerSaved, false);
+      assertTrue(DownloadStore.list(c).isEmpty());
+      managerFile.assertReadable();
+
+      library.seed(managerRow);
+      managerSaved = DownloadStore.list(c).get(0);
+      DownloadStore.remove(c, managerSaved, true);
+      assertTrue(DownloadStore.list(c).isEmpty());
+      managerFile.assertUnavailable();
     }
   }
 
@@ -324,13 +346,13 @@ public final class DeviceRegressionTest {
     try (OutputStream output = new FileOutputStream(file)) {
       output.write(fixtureBytes());
     }
-    return new SavedFixture(c, Uri.fromFile(file), file);
+    return new SavedFixture(c, Uri.fromFile(file), file, file.getName());
   }
 
   private static SavedFixture mediaStoreFixture(Context c) throws Exception {
+    String name = "still_cookie_test_" + UUID.randomUUID() + ".mp4";
     ContentValues values = new ContentValues();
-    values.put(
-        MediaStore.Downloads.DISPLAY_NAME, "still_cookie_test_" + UUID.randomUUID() + ".mp4");
+    values.put(MediaStore.Downloads.DISPLAY_NAME, name);
     values.put(MediaStore.Downloads.MIME_TYPE, "video/mp4");
     values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/StillTests");
     Uri uri = c.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
@@ -342,7 +364,7 @@ public final class DeviceRegressionTest {
       c.getContentResolver().delete(uri, null, null);
       throw error;
     }
-    return new SavedFixture(c, uri, null);
+    return new SavedFixture(c, uri, null, name);
   }
 
   private static byte[] fixtureBytes() {
@@ -380,11 +402,13 @@ public final class DeviceRegressionTest {
     final Context context;
     final Uri uri;
     final File file;
+    final String name;
 
-    SavedFixture(Context context, Uri uri, File file) {
+    SavedFixture(Context context, Uri uri, File file, String name) {
       this.context = context;
       this.uri = uri;
       this.file = file;
+      this.name = name;
     }
 
     String path() {
