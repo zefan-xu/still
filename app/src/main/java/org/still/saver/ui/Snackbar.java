@@ -16,6 +16,7 @@ public final class Snackbar {
   private final Handler handler = new Handler(Looper.getMainLooper());
   private LinearLayout bar;
   private TextView text;
+  private Motion.Value entering;
   private final Runnable hide = this::hide;
 
   public Snackbar(Ui ui, FrameLayout host) {
@@ -49,16 +50,25 @@ public final class Snackbar {
                 hide();
                 run.run();
               });
-      button.setTextColor(t.dark ? 0xff9e4a2e : 0xffe8a58c);
+      button.setTextColor(t.onInkAccent);
       bar.addView(button);
     }
     FrameLayout.LayoutParams params =
         new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
     params.setMargins(ui.dp(16), 0, ui.dp(16), ui.insetBottom() + ui.dp(16));
     host.addView(bar, params);
-    bar.setAlpha(0);
-    bar.setTranslationY(ui.dp(16));
-    bar.animate().alpha(1).translationY(0).setDuration(180).start();
+    View shown = bar;
+    float lift = ui.dp(16);
+    entering =
+        new Motion.Value(
+            shown,
+            0,
+            0.08f,
+            p -> {
+              shown.setAlpha(p);
+              shown.setTranslationY((1 - p) * lift);
+            });
+    entering.to(1);
     handler.postDelayed(hide, action == null ? 3500 : 5000);
   }
 
@@ -66,9 +76,23 @@ public final class Snackbar {
     return bar == null ? null : text.getText().toString();
   }
 
+  /** Clears at once; the old bar fades out in the host's overlay, where it takes no input. */
   public void hide() {
     handler.removeCallbacks(hide);
-    if (bar != null) host.removeView(bar);
+    if (entering != null) entering.stop();
+    entering = null;
+    if (bar != null) {
+      View leaving = bar;
+      float from = leaving.getAlpha();
+      host.getOverlay().add(leaving);
+      Motion.play(
+          host,
+          0.24f,
+          age -> {
+            if (age == Motion.END) host.getOverlay().remove(leaving);
+            else leaving.setAlpha(from * (1 - Motion.smooth(0, 0.18f, age)));
+          });
+    }
     bar = null;
     text = null;
   }
