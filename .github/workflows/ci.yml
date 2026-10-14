@@ -31,7 +31,7 @@ jobs:
           # The default also installs the long-removed "tools" package, which now fails.
           packages: platform-tools
       # v6 adds a proprietary caching component under separate terms; v5 is MIT-licensed.
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - run: python3 scripts/test.py local
       - name: Summarize quality
@@ -64,7 +64,7 @@ jobs:
       - uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Free disk space for the emulator
         run: |
