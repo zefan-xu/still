@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.still.saver;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -614,7 +615,7 @@ public final class PlayerActivity extends Activity {
 
                 @Override
                 public boolean onSingleTapConfirmed(MotionEvent e) {
-                  if (!wasPinching && mode == MODE_NONE) setChrome(!chromeVisible);
+                  if (!wasPinching && mode == MODE_NONE) performClick();
                   return true;
                 }
 
@@ -677,6 +678,9 @@ public final class PlayerActivity extends Activity {
       return true;
     }
 
+    // A tap is only confirmed after the double-tap timeout, so performClick runs from
+    // onSingleTapConfirmed rather than inside this method.
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
       int action = event.getActionMasked();

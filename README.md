@@ -88,7 +88,7 @@ Every change reaches `main` through a pull request that must pass one required c
 - **Unit and property tests.** 126 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
 - **Mutation testing.** [PIT](https://pitest.org) plants small bugs in the core code; the build fails if fewer than 73% are caught. Line and branch coverage must stay above their floors as well.
 - **Static analysis.** [Error Prone](https://errorprone.info) and Android lint run with warnings as errors.
-- **Real devices.** 22 workflows (saving, the library, sharing, playback, GIF export, settings and download state) run on Android 10 and Android 15 emulators against real files.
+- **Real devices.** 23 workflows (saving, the library, sharing, playback and the viewer, GIF export, settings and download state) run on Android 10 and Android 15 emulators against real files.
 - **Release checks.** Before each release, the exact signed APK is checked for its version, signing certificate and bundled licenses, then installed and launched on an Android 15 emulator.
 
 [TESTING.md](TESTING.md) covers what each layer proves, what it doesn't, and how to run it.
