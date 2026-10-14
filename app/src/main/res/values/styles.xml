@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="BaseAppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#C6613F</item>
+        <item name="android:colorControlActivated">#C6613F</item>
+        <item name="android:colorControlHighlight">#14141413</item>
+        <item name="android:textColorHighlight">#4DD97757</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FAF9F5</item>
+        <item name="android:navigationBarColor">#141413</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#FAF9F5</item>
+    </style>
+    <style name="AppTheme" parent="BaseAppTheme" />
+    <style name="BaseAppThemeDark" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#D97757</item>
+        <item name="android:colorControlActivated">#D97757</item>
+        <item name="android:colorControlHighlight">#1FFAF9F5</item>
+        <item name="android:textColorHighlight">#4DD97757</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#1F1E1D</item>
+        <item name="android:navigationBarColor">#1F1E1D</item>
+        <item name="android:windowBackground">#1F1E1D</item>
+    </style>
+    <style name="AppThemeDark" parent="BaseAppThemeDark" />
+
+    <!-- The share sheet draws its own scrim over the app that shared the link. -->
+    <style name="Still.Share" parent="AppTheme">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+    <style name="Still.Share.Dark" parent="AppThemeDark">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+    <style name="Still.Viewer" parent="BaseAppThemeDark">
+        <item name="android:windowBackground">#141413</item>
+        <item name="android:statusBarColor">#141413</item>
+        <item name="android:navigationBarColor">#141413</item>
+    </style>
+</resources>

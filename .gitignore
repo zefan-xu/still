@@ -1,0 +1,13 @@
+.tools/
+.gradle/
+**/build/
+local.properties
+analysis/
+.isaac/
+*.jks
+*.keystore
+.DS_Store
+artifacts/
+
+__pycache__/
+*.pyc

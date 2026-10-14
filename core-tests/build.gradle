@@ -1,0 +1,25 @@
+plugins { id 'java' }
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir '../app/src/main/java'
+            include 'org/still/saver/core/*.java'
+            include 'org/still/saver/gif/AnimatedGifEncoder.java'
+            include 'org/still/saver/ui/LibraryModel.java'
+            include 'org/still/saver/ui/Format.java'
+            exclude 'org/still/saver/core/PublicPageResolver.java'
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.jsoup:jsoup:1.23.2'
+    implementation 'org.json:json:20240303'
+    testImplementation 'junit:junit:4.13.2'
+}

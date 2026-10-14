@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <provider android:name="org.still.saver.FixtureControlProvider"
+            android:authorities="org.still.saver.test.controls"
+            android:exported="true" />
+        <!-- Synthetic files and synchronization gates; installed only with the test APK. -->
+        <provider android:name="org.still.saver.FixtureDocumentsProvider"
+            android:authorities="org.still.saver.test.documents" android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" android:grantUriPermissions="true">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
+    </application>
+</manifest>
