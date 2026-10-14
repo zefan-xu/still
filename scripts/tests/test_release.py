@@ -39,7 +39,7 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(result["version"], "1.1.2")
 
     def test_docs_ci_and_test_changes_do_not_release(self):
-        changed = ["README.md", ".github/workflows/android.yml", "core-tests/build.gradle",
+        changed = ["README.md", ".github/workflows/ci.yml", "core-tests/build.gradle",
                    "app/src/androidTest/java/org/still/saver/FunctionalUiTest.java", "scripts/test.py"]
         result = release.plan(["v1.1.4"], (1, 1, 0), changed)
         self.assertFalse(result["release"])
@@ -114,6 +114,25 @@ class NotesTest(unittest.TestCase):
         self.assertIn("14:0B:DC:20", text)
         self.assertIn("https://github.com/zefan-xu/still/tree/v1.2.3", text)
         self.assertIn("THIRD_PARTY_NOTICES.md", text)
+
+
+class SmokeTest(unittest.TestCase):
+    HIERARCHY = (
+        '<hierarchy rotation="0"><node index="0" text="" resource-id="" class="android.widget.ImageView" '
+        'package="org.still.saver" content-desc="Search" clickable="true" bounds="[836,107][962,233]" />'
+        '<node index="1" text="" resource-id="" class="android.widget.ImageView" package="org.still.saver" '
+        'content-desc="Settings" checkable="false" clickable="true" bounds="[962,107][1080,233]" />'
+        '<node index="2" text="Open Still" resource-id="" class="android.widget.TextView" package="org.still.saver" '
+        'content-desc="" clickable="true" bounds="[48,2050][520,2160]" /></hierarchy>'
+    )
+
+    def test_views_are_found_by_description_or_text(self):
+        self.assertEqual(release.find_view(self.HIERARCHY, "content-desc", "Settings"), (1021, 170))
+        self.assertEqual(release.find_view(self.HIERARCHY, "text", "Open Still"), (284, 2105))
+
+    def test_missing_views_are_none(self):
+        self.assertIsNone(release.find_view(self.HIERARCHY, "content-desc", "Preferences"))
+        self.assertIsNone(release.find_view(self.HIERARCHY, "text", "Settings"))
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ python3 scripts/test.py live --serial emulator-5554 --quality both
 python3 scripts/test.py all --serial emulator-5554
 ```
 
-`local` runs runner regression tests, JVM tests, lint and both APK builds. `device` adds deterministic Android workflows. `live` adds public-network tests. Suites run sequentially because they share preferences. The runner selects the sole connected emulator or requires `--serial` when several are connected. Physical devices require `--allow-physical --serial <id>` and should be dedicated to testing. The app itself still supports API 24+.
+`local` runs the runner and release-script tests, JVM unit and property tests with coverage floors, mutation testing, Error Prone, Android lint, and debug, test and release APK builds. `device` adds deterministic Android workflows. `live` adds public-network tests. `screenshots` renders the README screens (see below). Suites run sequentially because they share preferences. The runner selects the sole connected emulator or requires `--serial` when several are connected. Physical devices require `--allow-physical --serial <id>` and should be dedicated to testing. The app itself still supports API 24+.
 
 After building, focused reruns are available:
 
@@ -18,6 +18,21 @@ After building, focused reruns are available:
 python3 scripts/test.py device --serial emulator-5554 --skip-build --class MediaWorkflowTest
 python3 scripts/test.py live --serial emulator-5554 --skip-build --quality smallest --class 'LivePlatformDownloadTest#threads'
 ```
+
+## Local gates
+
+Each gate fails the build; none only reports.
+
+| Gate | What it checks | Where it is set |
+| --- | --- | --- |
+| JVM tests | 126 JUnit tests over the parsers, resolvers, `Mp4Repair`, `LibraryModel`, `Format` and the GIF encoder | `core-tests/src/test` |
+| Property tests | [jqwik](https://jqwik.net) generates share text, links, hosts, MP4 box trees, random bytes and library histories. Invariants include: every supported post link survives surrounding share text and comes out canonical; preview URLs never reach IP addresses or local names; MP4 repair touches only sample-table flags, is idempotent and never throws; every library item appears exactly once, in order, within its day | `*PropertyTest.java` |
+| Coverage | JaCoCo line ≥ 87%, branch ≥ 72% for the code `core-tests` compiles | `core-tests/build.gradle` |
+| Mutation | PIT must kill ≥ 73% of mutants; surviving mutants are listed in `core-tests/build/reports/pitest/index.html` | `core-tests/build.gradle` |
+| Error Prone | Bug-pattern analysis of core code, warnings as errors | `core-tests/build.gradle` |
+| Android lint | Warnings as errors; `app/lint-baseline.xml` records existing issues so only new ones fail | `app/build.gradle` |
+
+Raise a floor when a change lifts the measured value well above it, so the floors keep tracking what the suite actually achieves. jqwik records failing seeds in `core-tests/build/jqwik-database` and replays them first on the next run.
 
 ## Main functionality coverage
 
@@ -46,10 +61,28 @@ The runner rejects failed, skipped, empty, incomplete, duplicate or wrongly coun
 
 Workflow fixtures snapshot/restore preferences and remove owned files, including after assertion failures. Real-media fixtures use unique `Downloads/StillTests_<id>` directories. Live probes remove their own jobs/files and restore temporary preferences, including Library state, concurrency and output folder. APK installation uses `-r`; the runner does not clear app data or delete arbitrary Downloads files. Use an isolated device because tests temporarily replace Library state and must not overlap real downloads/exports. Process crashes can interrupt cleanup.
 
-Media fixtures are generated for this project. See [fixture provenance](app/src/androidTest/assets/README.md).
+Workflow media fixtures are generated for this project; the README screenshot library is public-domain NASA imagery. See [fixture provenance](app/src/androidTest/assets/README.md).
 
-## CI
+## README screenshots
 
-[Android workflow](.github/workflows/android.yml) runs local checks and offline API 29/35 emulator jobs on pushes and pull requests. Manual dispatch with `live=true` adds a separate API 35 network job at both qualities. Artifacts upload even on failure. Remote workflow execution is a separate verification step; local configuration does not prove those jobs have run.
+```sh
+python3 scripts/test.py screenshots --serial emulator-5554
+python3 scripts/readme_art.py artifacts/test-runs/<run>/screenshots
+```
+
+`ReadmeScreenshots` runs only with this mode. It seeds an isolated library and a three-photo post, then captures the library, save sheet, long-press actions and settings in light and dark, plus the viewer. The runner sets a 9:41 demo status bar and gesture navigation for the run and restores the previous navigation mode afterwards. `readme_art.py` (Pillow, fontTools and uharfbuzz) redraws `docs/readme/` from those files.
+
+## CI and releases
+
+| Workflow | When | What |
+| --- | --- | --- |
+| [CI](.github/workflows/ci.yml) | Every pull request and push to `main` | actionlint, then `scripts/test.py local`, then the offline device suite on API 29 and API 35 emulators. The **CI passed** job is the single required check |
+| [Release](.github/workflows/release.yml) | Mondays 15:00 UTC, or by hand | Plans a version from tags and changed app files, reruns CI on that commit, builds the signed APK, verifies its version, certificate and notices, installs and launches it on an API 35 emulator, then publishes it |
+| [Live platforms](.github/workflows/live.yml) | Sundays 14:00 UTC, or by hand | The live suite on API 35; opens, updates or closes a `live-check` issue |
+| [Pull request](.github/workflows/pull-request.yml) | Pull requests | Labels by path for release notes; auto-merges non-major Dependabot updates once CI passes |
+
+Reports, JUnit XML, coverage and mutation reports upload as artifacts even on failure, and the checks job writes a Markdown summary of test counts, coverage and mutation score. Live checks run from GitHub's network, where platforms may rate-limit or block requests; read a failure's JSON before assuming the app broke.
+
+`scripts/release.py` holds the release logic so it is unit-tested locally (`scripts/tests/test_release.py`): `plan` decides whether and what to release, `verify` checks the APK with `apksigner` and `aapt2`, `smoke` installs and launches it on an emulator, and `notes` writes the install and verification notes.
 
 API 24–28 storage/permission workflows, actual system-picker interaction, cross-app sharing, real transfer scheduling/retry and delayed video preparation need further device coverage. Passing tests does not guarantee every public link or device codec works.

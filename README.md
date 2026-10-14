@@ -1,54 +1,123 @@
-# Still
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/hero-dark.svg">
+  <img src="docs/readme/hero-light.svg" width="100%" alt="Still: save the photos and videos from public posts. No ads, no account, no tracking.">
+</picture>
 
-An ad-free, open-source Android media saver for public posts on X, Instagram, TikTok, Facebook, Pinterest, Threads and Bluesky. Still contains no advertising SDK, advertising ID, analytics, purchases, or account login.
+<p>
+  <a href="https://github.com/zefan-xu/still/releases/latest">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/download-dark.svg">
+      <img src="docs/readme/download-light.svg" height="52" alt="Download for Android">
+    </picture>
+  </a>
+</p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/platforms-dark.svg">
+  <img src="docs/readme/platforms-light.svg" height="26" alt="Works with X, Instagram, TikTok, Facebook, Pinterest, Threads and Bluesky">
+</picture>
+
+<br><br>
+
+Still is a small Android app for keeping the photos, videos and GIFs from public posts. Share a link to it from any app, choose what to keep, and carry on; the files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or sign-in, and it never asks for an account.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens-dark.png">
+  <img src="docs/readme/screens-light.png" width="100%" alt="Four Still screens: the library grouped by day, the save sheet for a three-photo post, the long-press actions, and settings">
+</picture>
+
+## How it works
+
+1. **Share a post to Still.** A sheet opens over the app you were in, with a preview of every photo, video and GIF in the post. You can also paste a link on Still's home screen.
+2. **Keep what you want.** Everything is selected; tap a preview to leave it out, or pick a quality per item. Tap **Save** and go back to what you were doing. Downloads continue in the background.
+3. **Find it later.** Home is your library, grouped by day, with search. Tap to view full screen; long-press to share, make a GIF, open the original post, remove it from the library or delete the file.
+
+Files go to `Downloads/Still`, or to another folder inside Downloads. Settings cover default quality (highest, smallest or choose each time), saving automatically on share, Wi-Fi-only downloads, one to four downloads at a time, and light, dark or system appearance.
+
+## Where it works
+
+| Platform | What saves |
+| --- | --- |
+| X | Videos, GIFs and photos |
+| Instagram | Photos, carousels and videos |
+| TikTok | Videos and photo slideshows |
+| Facebook | Videos and reels |
+| Pinterest | Videos and image pins |
+| Threads | Photos, carousels and videos |
+| Bluesky | Videos and photos |
+
+Only public posts work. Private, login-only and deleted posts, streaming-only video, and Facebook photos are not supported. Platforms change without notice, so a scheduled job downloads real posts from every platform each week and opens an issue when one stops working; [VALIDATION.md](VALIDATION.md) lists the exact posts. If a link that used to work stops, [tell us](https://github.com/zefan-xu/still/issues/new?template=link-stopped-working.yml).
+
+## Privacy
+
+Still reads posts the way a logged-out browser would, directly from your phone. There is no Still server.
+
+- **No tracking.** No advertising SDK, advertising ID, analytics or crash reporting.
+- **No accounts.** Still never asks you to sign in and never imports browser cookies or credentials. When a platform requires one for a public file, it uses an anonymous session cookie and checks its scope on every redirect.
+- **Only what's needed leaves your phone.** For X, only the post ID goes to the open-source [FxTwitter](https://github.com/FxEmbed/FxEmbed) API; you can point Settings at your own instance. Other platforms are contacted directly, and the bundled [yt-dlp](https://github.com/yt-dlp/yt-dlp) extractor runs on the device. It updates only when you ask, from yt-dlp's official GitHub release.
+- **Clipboard on request.** Still reads the clipboard only when you tap **Paste**.
 
 ## Install
 
-Build the APK as described below and install it on Android 7.0 or newer (API 24+). It is a debug-signed build for personal use; enable installation from your file manager when Android prompts you. The package is `org.still.saver`.
+Download **Still-x.y.z.apk** from the [latest release](https://github.com/zefan-xu/still/releases/latest) on an Android 7.0 or newer phone, open it, and allow your browser or file manager to install apps when Android asks. Each release installs over the last one and keeps your library. If you installed a build you made yourself, or one from before the first release, uninstall it once first; it is signed with a different key.
 
-## Use
+<details>
+<summary>Verify a download</summary>
 
-1. In any app, share a public post link to **Still**. A sheet opens over that app with a preview of each photo, video and GIF in the post. Tap **Save** and carry on; downloads continue in the background. You can also paste a link into the field at the top of Still's home screen.
-2. All items in a post are selected; tap a preview to leave it out. When **Default quality** is *Choose for each item*, a quality chip appears under each preview. With **Save automatically** on, sharing saves straight away.
-3. Home is your library: downloads in progress at the top, saved files below as a thumbnail grid grouped by day. Tap a file to view it full-screen; long-press for Share, Make a GIF, Open original post, Remove or Delete. Use the search icon to find files by title or name.
-4. **Make a GIF** exports a looping GIF from a saved video, using the first 60 seconds, 8 frames per second, a 256-color palette, and at most 360 pixels on either side. Progress and Cancel appear on the home screen, including when notifications are disabled.
+<br>
 
-Files normally go to `Downloads/Still`. Settings support a different subfolder inside Downloads, highest/smallest/per-item quality, automatic saving, Wi-Fi-only transfers, 1–4 concurrent downloads, and system/light/dark appearance. Clipboard access happens only when you tap Paste. Wi-Fi changes apply to new transfers; use Restart on a waiting item to start it over under the current setting.
+Each release lists the APK's SHA-256 and ships a `SHA256SUMS.txt`. Every release is signed with the same key, whose certificate SHA-256 is:
 
-Android DownloadManager handles ordinary transfers. Media that requires anonymous cookies uses a foreground HTTPS downloader with the same progress, cancel, and retry actions; it rechecks cookie scope and expiry at each redirect. Interrupted cookie-bearing transfers restart from byte zero rather than resuming a partial file.
-
-## Supported sources and limits
-
-Twitter/X public videos, GIF animations, and photos use the open-source [FxTwitter](https://github.com/FxEmbed/FxEmbed) public metadata API. Only the post ID is sent, alongside normal HTTPS connection information. Before you save, previews of each item load directly from the platform's own image CDN over HTTPS, without cookies or referrers; saved-file thumbnails are generated on the device. Settings allow a compatible self-hosted HTTPS API. Instagram photos, carousels and videos are read from the post's ordinary logged-out web page, which lists every item; no session or account cookies are sent. A bundled on-device [yt-dlp](https://github.com/yt-dlp/yt-dlp) extractor provides public-video extraction for TikTok, Facebook, Pinterest and Bluesky. It contacts those platforms directly. That extractor reads only videos, so photo posts use each platform's own public data: the Bluesky public API, Pinterest's pin resource, and TikTok's post page for photo slideshows. Threads photos and videos use the ordinary public Threads embed; Facebook video links also have a public-embed fallback when the extractor fails. These routes run on the device without an account. Extractor updates are explicit in Settings and come from the official yt-dlp GitHub release.
-
-Public videos, photos, carousels and GIFs from every supported platform were resolved, downloaded, and decoded on Android 15/API 35; [VALIDATION.md](VALIDATION.md) lists the exact posts and results.
-
-Platform behavior changes. Public progressive video files and photos are supported; login-required/protected/deleted posts, streaming-only HLS/DASH, split audio/video tracks, and Facebook photos are not. X serves GIF animations as MP4 files with a malformed reserved field that Android refuses to play; Still clears that field after the download, changing no other byte. Still uses anonymous session cookies generated by the extractor when a public media transfer requires them; it does not import browser cookies or account credentials. Native GIF export is independent of FFmpeg. Playback support for AV1, VP9, and other codecs varies by device and Android version. On Android 7–8, saved GIF previews show the first frame; share them to a GIF-capable viewer for animation.
-
-GIF export is an explicit action rather than an automatic conversion of every download. Still has no account login, bookmarks, private vault, translations, or in-app file rename/move, and folder choices stay within Downloads.
-
-## Build and test
-
-Requirements: JDK 17 or newer, Android SDK platform 35/build tools 35, and internet access for the initial Gradle dependencies. JDK 21 was used for verification.
-
-```sh
-# Set ANDROID_HOME, or create an ignored local.properties containing sdk.dir=/path/to/sdk.
-./gradlew :core-tests:test :app:assembleDebug :app:lintDebug
+```
+14:0B:DC:20:9B:58:30:C1:9C:C9:19:9D:94:FA:05:EE:93:85:3D:47:0B:8E:1A:04:FC:96:D0:A1:1E:2A:8B:B0
 ```
 
-The installable output is `app/build/outputs/apk/debug/app-debug.apk`. The wrapper uses Gradle 8.13 with its distribution SHA-256 pinned. Google Maven and Maven Central contain the dependencies; an HTTPS Aliyun Maven Central mirror is included for environments where direct Central access is unavailable.
+```sh
+shasum -a 256 -c SHA256SUMS.txt
+apksigner verify --print-certs Still-x.y.z.apk   # "Signer #1 certificate SHA-256 digest" must match
+```
 
-The `core-tests` module runs ordinary JVM tests against the actual parser, resolver models, and GIF encoder. GIF tests use Java ImageIO to decode pixels and animation metadata, so they are deliberately separate from the Android boot classpath.
+The release workflow refuses to publish an APK signed by any other certificate ([`release/signing-certificate.sha256`](release/signing-certificate.sha256)).
+
+</details>
+
+## How Still is tested
+
+Every change reaches `main` through a pull request that must pass one required check, **CI passed**. Behind it:
+
+- **Unit and property tests.** 126 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
+- **Mutation testing.** [PIT](https://pitest.org) plants small bugs in the core code; the build fails if fewer than 73% are caught. Line and branch coverage must stay above their floors as well.
+- **Static analysis.** [Error Prone](https://errorprone.info) and Android lint run with warnings as errors.
+- **Real devices.** 22 workflows (saving, the library, sharing, playback, GIF export, settings and download state) run on Android 10 and Android 15 emulators against real files.
+- **Release checks.** Before each release, the exact signed APK is checked for its version, signing certificate and bundled licenses, then installed and launched on an Android 15 emulator.
+
+[TESTING.md](TESTING.md) covers what each layer proves, what it doesn't, and how to run it.
+
+## Releases
+
+A new version ships automatically every Monday at 15:00 UTC when app code on `main` has changed since the last release. The release job reruns the full CI suite on that exact commit, builds and signs the APK, verifies and smoke-tests it, then tags `vX.Y.Z` and publishes notes grouped by pull request label. Versions come from the tag: weekly releases bump the patch, and raising `baseVersion` in [`app/build.gradle`](app/build.gradle) starts a minor or major release. A maintainer can also run the **Release** workflow by hand.
+
+<details>
+<summary>Maintainers: signing secrets</summary>
+
+<br>
+
+The release job needs four repository secrets: `RELEASE_KEYSTORE_BASE64` (the PKCS#12 keystore, base64-encoded), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. Keep an offline backup of the keystore: Android only installs updates signed with the same key, so losing it means every user must uninstall to upgrade. If the key ever changes, update `release/signing-certificate.sha256` in the same pull request.
+
+</details>
+
+## Build from source
+
+You need JDK 17 or newer (CI uses 21), Python 3, and the Android SDK with platform 35 and build-tools 35.0.0. Set `ANDROID_HOME`, or put `sdk.dir=/path/to/sdk` in an ignored `local.properties`.
 
 ```sh
-python3 scripts/test.py local
+./gradlew :app:assembleDebug                 # app/build/outputs/apk/debug/app-debug.apk
+python3 scripts/test.py local                # every check CI runs without a device
 python3 scripts/test.py device --serial emulator-5554
-# Opt-in public resolution/download/decode checks at both qualities:
-python3 scripts/test.py live --serial emulator-5554 --quality both
 ```
 
-The default device suite runs 22 deterministic checks for settings, quality selection, saving several items, the library, sharing, playback, GIF export/cancellation and download state. Use an isolated API 29+ emulator. Public-platform checks run separately and fail on unexpected service/sample errors. [TESTING.md](TESTING.md) describes coverage, remaining gaps, focused reruns, reports and CI; [VALIDATION.md](VALIDATION.md) records observed results.
+Work on a branch, open a pull request, and it merges once **CI passed** is green. The README images come from `python3 scripts/test.py screenshots`, which renders the app with public-domain NASA imagery, and [`scripts/readme_art.py`](scripts/readme_art.py).
 
 ## License
 
-Still is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Bundled dependencies retain their own licenses, including youtubedl-android's GPL-3.0 terms. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records dependencies and source locations. The native extractor is distributed by its upstream Android wrapper; see its corresponding release sources before publishing binaries.
+Still is free software under the [GPL-3.0-or-later](LICENSE). Bundled components keep their own licenses, listed with their sources in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); the typeface is [Source Serif 4](licenses/SourceSerif4-OFL-1.1.txt) under the SIL Open Font License. Images in the screenshots are courtesy of NASA ([credits](app/src/androidTest/assets/README.md#readme-screenshots)); NASA does not endorse Still. Still is not affiliated with any of the platforms it works with.

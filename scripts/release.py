@@ -164,6 +164,16 @@ def command_verify(args):
     return 1 if problems else 0
 
 
+def find_view(hierarchy, attribute, value):
+    """Centre of the first view whose text or content-desc equals value in a uiautomator dump, or None."""
+    node = re.search(rf'<node [^>]*{attribute}="{re.escape(value)}"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
+                     hierarchy)
+    if not node:
+        return None
+    left, top, right, bottom = map(int, node.groups())
+    return (left + right) // 2, (top + bottom) // 2
+
+
 def command_smoke(args):
     """Installs the exact release APK on a disposable emulator and exercises launch and sharing."""
     adb = [find_tool("adb"), "-s", args.serial]
@@ -188,7 +198,6 @@ def command_smoke(args):
         ("handles an unsupported shared link", ["shell", "am", "start", "-W", "-a", "android.intent.action.SEND",
                                                  "-t", "text/plain", "--es", "android.intent.extra.TEXT",
                                                  "https://example.com/not-a-post", "-n", f"{PACKAGE}/.ShareActivity"]),
-        ("opens settings", ["shell", "am", "start", "-W", "-n", f"{PACKAGE}/.SettingsActivity"]),
     ]
     for description, command in checks:
         output = run(*command)
@@ -198,6 +207,23 @@ def command_smoke(args):
         if not run("shell", "pidof", PACKAGE, check=False).strip():
             raise RuntimeError(f"Release build exited after it {description}")
         print(f"✓ Release build {description}")
+
+    def tap(attribute, value, expected_activity, description):
+        run("shell", "uiautomator", "dump", "/sdcard/still-smoke.xml")
+        hierarchy = run("exec-out", "cat", "/sdcard/still-smoke.xml")
+        run("shell", "rm", "-f", "/sdcard/still-smoke.xml")
+        point = find_view(hierarchy, attribute, value)
+        if point is None:
+            raise RuntimeError(f'Release build shows no "{value}" when it should {description}')
+        run("shell", "input", "tap", str(point[0]), str(point[1]))
+        time.sleep(3)
+        if f"{PACKAGE}/{expected_activity}" not in run("shell", "dumpsys", "activity", "activities"):
+            raise RuntimeError(f'Tapping "{value}" in the release build did not {description}')
+        print(f"✓ Release build can {description}")
+
+    # Settings is not exported, so reach it the way a person does.
+    tap("text", "Open Still", ".MainActivity", "open the library from the share sheet")
+    tap("content-desc", "Settings", ".SettingsActivity", "open settings")
     crashes = run("logcat", "-d", "-b", "crash")
     if PACKAGE in crashes:
         raise RuntimeError("Release build crashed:\n" + crashes)
