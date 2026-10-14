@@ -14,7 +14,7 @@ concurrency:
 jobs:
   checks:
     name: Checks (tests, coverage, mutation, lint, builds)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
@@ -49,7 +49,7 @@ jobs:
             app/build/outputs/apk/debug/
   device:
     name: Device (API ${{ matrix.api }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -94,7 +94,7 @@ jobs:
     name: CI passed
     if: always()
     needs: [checks, device]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Require every job to succeed
         env:

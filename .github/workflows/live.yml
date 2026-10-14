@@ -18,7 +18,7 @@ concurrency:
 jobs:
   live:
     name: Real downloads from every platform
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -59,7 +59,7 @@ jobs:
     name: Track platform breakage in an issue
     needs: live
     if: always() && github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       issues: write
     env:
