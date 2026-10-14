@@ -6,6 +6,7 @@ import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
+import android.widget.LinearLayout;
 import java.util.ArrayList;
 import java.util.List;
 import org.still.saver.gif.GifService;
@@ -121,6 +122,37 @@ final class EntryActions {
         "Cancel download",
         true,
         () -> remove(e, true));
+  }
+
+  void promptDelete(DownloadStore.Entry e) {
+    LinearLayout box =
+        sheet.frame(
+            "Remove or delete?",
+            "Removing keeps the saved file in Downloads/"
+                + DownloadStore.folder(activity)
+                + ". Deleting removes the file from this device.");
+    box.addView(
+        sheet.actionRow(
+            new Sheet.Action(
+                "Remove from library",
+                R.drawable.ic_close,
+                false,
+                () -> {
+                  sheet.dismiss();
+                  remove(e, false);
+                })));
+    box.addView(
+        sheet.actionRow(
+            new Sheet.Action(
+                "Delete file",
+                R.drawable.ic_delete,
+                true,
+                () -> {
+                  sheet.dismiss();
+                  remove(e, true);
+                })));
+    box.addView(sheet.actionRow(new Sheet.Action("Keep", 0, false, sheet::dismiss)));
+    sheet.show(box);
   }
 
   void confirmRemove(DownloadStore.Entry e, boolean delete) {

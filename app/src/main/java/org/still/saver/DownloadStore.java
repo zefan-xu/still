@@ -6,9 +6,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
-import android.util.Log;
+import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
+import android.util.Log;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -278,13 +280,14 @@ public final class DownloadStore {
           write(c, a);
           continue;
         }
+        String sub = folder(c);
         DownloadManager.Request r = new DownloadManager.Request(Uri.parse(d.getString("url")));
         r.setTitle(d.optString("filename"))
             .setDescription("Saved with Still")
             .setMimeType(d.optString("mime"))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(
-                Environment.DIRECTORY_DOWNLOADS, folder(c) + "/" + d.getString("filename"));
+                Environment.DIRECTORY_DOWNLOADS, sub + "/" + d.getString("filename"));
         boolean wifi = prefs(c).getBoolean("wifi", false);
         r.setAllowedNetworkTypes(
             wifi
@@ -298,7 +301,7 @@ public final class DownloadStore {
             if (headers.has(h)) r.addRequestHeader(h, headers.getString(h));
         r.allowScanningByMediaScanner();
         long id = manager(c).enqueue(r);
-        d.put("id", id);
+        d.put("id", id).put("folder", sub);
         active++;
         changed = true;
         // Commit every admitted job so a process death cannot lose its manager ID.
@@ -387,24 +390,101 @@ public final class DownloadStore {
         throw new IllegalStateException(
             "Cancel the active download to remove it from the library.");
       // Removing history must never call the manager's file-deleting remove API.
-      if (current.id > 0 && deleteFile) manager(c).remove(current.id);
+      if (current.id > 0 && deleteFile) deleteManagerOutput(c, current, d);
       if (current.id == COOKIE_TRANSFER_ID && deleteFile) {
         CookieDownloadService.cancel(current.key, d.optString("token"));
         deleteCookieOutput(c, d);
       }
-      if (current.id == 0 && deleteFile && current.uri != null)
-        c.getContentResolver().delete(current.uri, null, null);
+      if (current.id == 0 && deleteFile) {
+        if (current.uri != null) deleteUri(c, current.uri);
+        deleteByDisplayName(c, current.filename, current.mime);
+      }
     }
     write(c, remaining);
     pump(c);
   }
 
+  private static void deleteManagerOutput(Context c, Entry current, JSONObject d) {
+    String mediaUri = null;
+    String localUri = null;
+    try (Cursor cursor = manager(c).query(new DownloadManager.Query().setFilterById(current.id))) {
+      if (cursor != null && cursor.moveToFirst()) {
+        int mediaCol = cursor.getColumnIndex(DownloadManager.COLUMN_MEDIAPROVIDER_URI);
+        if (mediaCol >= 0) mediaUri = cursor.getString(mediaCol);
+        int localCol = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
+        if (localCol >= 0) localUri = cursor.getString(localCol);
+      }
+    } catch (RuntimeException ignored) {
+    }
+    File localFile = null;
+    if (localUri != null && localUri.startsWith("file://")) {
+      String path = Uri.parse(localUri).getPath();
+      if (path != null && !path.isEmpty()) localFile = new File(path);
+    }
+    String sub = d.optString("folder", folder(c));
+    File fallbackFile =
+        current.filename.isEmpty()
+            ? null
+            : new File(
+                new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    sub),
+                current.filename);
+    // Delete owned MediaStore rows BEFORE manager.remove(), which clears owner_package_name
+    // without removing the public Downloads file on Android 10+.
+    if (mediaUri != null && !mediaUri.isEmpty()) deleteUri(c, Uri.parse(mediaUri));
+    deleteByDisplayName(c, current.filename, current.mime);
+    if (localFile != null && !localFile.getName().equals(current.filename))
+      deleteByDisplayName(c, localFile.getName(), current.mime);
+    if (current.uri != null) deleteUri(c, current.uri);
+    if (localFile != null) localFile.delete();
+    if (fallbackFile != null) fallbackFile.delete();
+    try {
+      manager(c).remove(current.id);
+    } catch (RuntimeException ignored) {
+    }
+    if (localFile != null) localFile.delete();
+    if (fallbackFile != null) fallbackFile.delete();
+  }
+
   private static void deleteCookieOutput(Context c, JSONObject d) {
     String uri = d.optString("uri");
-    if (!uri.isEmpty() && "content".equals(Uri.parse(uri).getScheme()))
-      c.getContentResolver().delete(Uri.parse(uri), null, null);
+    if (!uri.isEmpty()) deleteUri(c, Uri.parse(uri));
+    deleteByDisplayName(c, d.optString("filename"), d.optString("mime"));
     String path = d.optString("path");
     if (!path.isEmpty()) new File(path).delete();
+  }
+
+  private static void deleteUri(Context c, Uri uri) {
+    if (uri == null) return;
+    try {
+      if ("content".equals(uri.getScheme())) {
+        c.getContentResolver().delete(uri, null, null);
+      } else if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+        new File(uri.getPath()).delete();
+      }
+    } catch (RuntimeException ignored) {
+    }
+  }
+
+  private static void deleteByDisplayName(Context c, String filename, String mime) {
+    if (filename == null || filename.isEmpty()) return;
+    String where = MediaStore.MediaColumns.DISPLAY_NAME + "=?";
+    String[] args = new String[] {filename};
+    if (Build.VERSION.SDK_INT >= 29) {
+      try {
+        c.getContentResolver().delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, where, args);
+      } catch (RuntimeException ignored) {
+      }
+    }
+    Uri mediaCollection =
+        mime != null && mime.startsWith("image/")
+            ? MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            : MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+    try {
+      c.getContentResolver().delete(mediaCollection, where, args);
+    } catch (RuntimeException ignored) {
+    }
   }
 
   static final class CookieJob {
