@@ -52,6 +52,9 @@ jobs:
     name: Device (API ${{ matrix.api }})
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    env:
+      # The debug APK this job installs is minified, same rules as release.
+      ORG_GRADLE_PROJECT_stillMinifyDebug: 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +98,8 @@ jobs:
     name: Device (API 28, legacy)
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    env:
+      ORG_GRADLE_PROJECT_stillMinifyDebug: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6

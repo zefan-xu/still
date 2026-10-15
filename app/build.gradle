@@ -12,20 +12,20 @@ def stillVersionCode = versionParts[0][1].toInteger() * 10000 + versionParts[0][
 def requireSigning = providers.gradleProperty('stillRequireSigning').getOrElse('false') == 'true'
 
 android {
-    namespace 'org.still.saver'
-    compileSdk 35
+    namespace = 'org.still.saver'
+    compileSdk = 35
     defaultConfig {
-        applicationId 'org.still.saver'
-        minSdk 24
-        targetSdk 35
-        versionCode stillVersionCode
-        versionName stillVersion
-        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        applicationId = 'org.still.saver'
+        minSdk = 24
+        targetSdk = 35
+        versionCode = stillVersionCode
+        versionName = stillVersion
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
         ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
     signingConfigs {
         release {
@@ -48,17 +48,28 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // CI sets stillMinifyDebug so the APK the device and live suites install is the
+            // minified one. A local debug build stays unminified.
+            if (providers.gradleProperty('stillMinifyDebug').getOrElse('false') == 'true') {
+                minifyEnabled = true
+                shrinkResources = true
+                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            }
+        }
         release {
-            minifyEnabled false
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // Unsigned unless the release key is present. -PstillRequireSigning=true fails instead.
             if (System.getenv('STILL_KEYSTORE')) signingConfig signingConfigs.release
         }
     }
     testOptions.unitTests.returnDefaultValues = true
     lint {
-        abortOnError true
-        warningsAsErrors true
-        checkReleaseBuilds true
+        abortOnError = true
+        warningsAsErrors = true
+        checkReleaseBuilds = true
         // Dependabot proposes upgrades; the app deliberately uses platform widgets.
         disable 'GradleDependency', 'NewerVersionAvailable', 'AndroidGradlePluginVersion', 'OldTargetApi',
                 'UseSwitchCompatOrMaterialCode', 'UseSwitchCompatOrMaterialXml'
@@ -76,6 +87,9 @@ tasks.register('copyLicenseAssets', Copy) {
     into layout.buildDirectory.dir('generated/licenseAssets/licenses')
 }
 tasks.named('preBuild').configure { dependsOn 'copyLicenseAssets' }
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xlint:-options']
+}
 
 // android.jar ships a stub org.json that throws. Unit tests need the real parser, ahead of that jar.
 tasks.withType(Test).configureEach {

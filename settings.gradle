@@ -1,7 +1,7 @@
 pluginManagement {
     repositories {
         google()
-        if (!System.getenv('CI')) maven { url 'https://maven.aliyun.com/repository/central' }
+        if (!System.getenv('CI')) maven { url = 'https://maven.aliyun.com/repository/central' }
         gradlePluginPortal()
         mavenCentral()
     }
@@ -10,7 +10,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        if (!System.getenv('CI')) maven { url 'https://maven.aliyun.com/repository/central' }
+        if (!System.getenv('CI')) maven { url = 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
     }
 }
