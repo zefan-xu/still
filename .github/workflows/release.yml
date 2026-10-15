@@ -82,13 +82,22 @@ jobs:
           STILL_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           STILL_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "The RELEASE_KEYSTORE_BASE64 secret is missing; see README → Releases." >&2
+          missing=()
+          [ -n "$KEYSTORE_BASE64" ] || missing+=(RELEASE_KEYSTORE_BASE64)
+          [ -n "$STILL_KEYSTORE_PASSWORD" ] || missing+=(RELEASE_KEYSTORE_PASSWORD)
+          [ -n "$STILL_KEY_ALIAS" ] || missing+=(RELEASE_KEY_ALIAS)
+          [ -n "$STILL_KEY_PASSWORD" ] || missing+=(RELEASE_KEY_PASSWORD)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Refusing to publish an unsigned build. Missing signing secrets: ${missing[*]}. See README → Releases." >&2
             exit 1
           fi
           export STILL_KEYSTORE="$RUNNER_TEMP/still-release.p12"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$STILL_KEYSTORE"
-          ./gradlew :app:assembleRelease -PstillVersion="$VERSION"
+          if [ ! -s "$STILL_KEYSTORE" ]; then
+            echo "STILL_KEYSTORE is missing or empty after decoding RELEASE_KEYSTORE_BASE64." >&2
+            exit 1
+          fi
+          ./gradlew :app:assembleRelease -PstillVersion="$VERSION" -PstillRequireSigning=true
           rm -f "$STILL_KEYSTORE"
           mkdir dist
           cp app/build/outputs/apk/release/app-release.apk "dist/Still-$VERSION.apk"

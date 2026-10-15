@@ -221,6 +221,32 @@ class StoreListingTest(unittest.TestCase):
                 self.assertTrue(path.stem.isdigit())
                 self.assertLessEqual(len(path.read_bytes()), release.CHANGELOG_LIMIT)
 
+    def test_published_releases_from_1_1_0_through_1_2_1_have_changelogs(self):
+        expected = {
+            10100: "- First published release\n",
+            10101: (
+                "- First-launch tutorial: share from any app, or paste a link\n"
+                "- Delete saved files from MediaStore and offer record-only removal in viewer\n"
+                "- Updated dependencies\n"
+            ),
+            10200: "- Support YouTube links, merging separate video and audio on the phone\n",
+            10201: "- Redraw the tutorial as a phone walking through the real share and paste flows\n",
+        }
+        for code, text in expected.items():
+            with self.subTest(code=code):
+                self.assertEqual((self.STORE / "changelogs" / f"{code}.txt").read_text(), text)
+
+    def test_release_workflow_refuses_an_unsigned_apk(self):
+        workflow = (Path(__file__).parents[2] / ".github/workflows/release.yml").read_text()
+        gradle = (Path(__file__).parents[2] / "app/build.gradle").read_text()
+        for name in ("RELEASE_KEYSTORE_BASE64", "RELEASE_KEYSTORE_PASSWORD", "RELEASE_KEY_ALIAS", "RELEASE_KEY_PASSWORD"):
+            self.assertIn(name, workflow)
+        self.assertIn("Refusing to publish an unsigned build.", workflow)
+        self.assertIn("-PstillRequireSigning=true", workflow)
+        self.assertIn("STILL_KEYSTORE is missing or empty", workflow)
+        self.assertIn("Refusing an unsigned APK.", gradle)
+        self.assertIn("stillRequireSigning", gradle)
+
 
 class SmokeTest(unittest.TestCase):
     HIERARCHY = (

@@ -7,6 +7,9 @@ def stillVersion = providers.gradleProperty('stillVersion').getOrElse(baseVersio
 def versionParts = (stillVersion =~ /^(\d{1,3})\.(\d{1,2})\.(\d{1,2})$/)
 if (!versionParts.matches()) throw new GradleException("stillVersion must be MAJOR.MINOR.PATCH with MINOR and PATCH below 100: $stillVersion")
 def stillVersionCode = versionParts[0][1].toInteger() * 10000 + versionParts[0][2].toInteger() * 100 + versionParts[0][3].toInteger()
+// The release workflow passes this so a missing key fails the job. Local and CI builds omit it
+// and stay unsigned, which is what the reproducibility check compares.
+def requireSigning = providers.gradleProperty('stillRequireSigning').getOrElse('false') == 'true'
 
 android {
     namespace 'org.still.saver'
@@ -27,18 +30,27 @@ android {
     signingConfigs {
         release {
             def keystore = System.getenv('STILL_KEYSTORE')
+            def storePassword = System.getenv('STILL_KEYSTORE_PASSWORD')
+            def alias = System.getenv('STILL_KEY_ALIAS')
+            def keyPassword = System.getenv('STILL_KEY_PASSWORD')
+            if (requireSigning && !keystore) {
+                throw new GradleException('STILL_KEYSTORE is required to sign this release. Refusing an unsigned APK.')
+            }
+            if (keystore && (!storePassword || !alias || !keyPassword)) {
+                throw new GradleException('STILL_KEYSTORE is set but STILL_KEYSTORE_PASSWORD, STILL_KEY_ALIAS or STILL_KEY_PASSWORD is missing. Refusing an unsigned APK.')
+            }
             if (keystore) {
                 storeFile file(keystore)
-                storePassword System.getenv('STILL_KEYSTORE_PASSWORD')
-                keyAlias System.getenv('STILL_KEY_ALIAS')
-                keyPassword System.getenv('STILL_KEY_PASSWORD')
+                storePassword storePassword
+                keyAlias alias
+                keyPassword keyPassword
             }
         }
     }
     buildTypes {
         release {
             minifyEnabled false
-            // Without the release key the APK stays unsigned and cannot be published by mistake.
+            // Unsigned unless the release key is present. -PstillRequireSigning=true fails instead.
             if (System.getenv('STILL_KEYSTORE')) signingConfig signingConfigs.release
         }
     }
