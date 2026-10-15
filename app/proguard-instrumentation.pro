@@ -8,3 +8,13 @@
 # Coroutines are on the instrumentation classpath only. Keep them in the test APK.
 -keep class kotlinx.** { *; }
 -dontwarn kotlinx.**
+
+# Espresso and the app both depend on this jar. The app never references it, so R8
+# drops it and the test APK still expects it in the app dex.
+-keep class com.google.common.util.concurrent.** { *; }
+-dontwarn com.google.common.util.concurrent.**
+
+# Instrumentation calls members the app itself does not (the two-argument Media
+# constructor, ShareActivity.session, PlayerActivity.pageCount). Release shrinking
+# still removes unused app members; this file is only on the minified debug APK.
+-keep class org.still.saver.** { *; }
