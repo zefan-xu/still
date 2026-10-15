@@ -103,10 +103,11 @@ public final class LegacyStorageTest {
         f.rotate(screen, Surface.ROTATION_90);
         assertNotSame("Library recreated behind the prompt", before, activity(screen));
         f.answer("permission_deny_button");
+        String denied = app.getString(R.string.storage_denied);
         TestFixtures.await(
             "denial explained on the rotated screen",
-            () -> StoragePermission.DENIED.equals(activity(screen).session().message()));
-        assertTrue(TestFixtures.hasText(screen, StoragePermission.DENIED));
+            () -> denied.equals(activity(screen).session().message()));
+        assertTrue(TestFixtures.hasText(screen, denied));
         assertEquals(1, DownloadStore.list(app).size());
         pressBack();
         f.rotate(screen, Surface.ROTATION_0);

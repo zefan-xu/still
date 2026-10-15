@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * Turns library entries into the rows the home list shows: an "In progress" section, then saved
+ * Turns library entries into the rows the home list shows: an in-progress section, then saved
  * items as a grid grouped by date. Searching switches to plain list rows. Pure Java.
  */
 public final class LibraryModel {
@@ -96,6 +96,13 @@ public final class LibraryModel {
 
   public static final String EMPTY_LIBRARY = "library", EMPTY_SEARCH = "search";
 
+  /** Header row keys; the app shows each as a localized title. */
+  public static final String SECTION_PROGRESS = "progress",
+      SECTION_TODAY = "today",
+      SECTION_WEEK = "week",
+      SECTION_EARLIER = "earlier",
+      SECTION_SAVED = "saved";
+
   private LibraryModel() {}
 
   public static List<Row> build(
@@ -127,20 +134,24 @@ public final class LibraryModel {
       else earlier.add(item); // Includes entries from before 1.1, which have no date.
     }
     if (!working.isEmpty()) {
-      rows.add(new Row(Type.HEADER, "In progress", Collections.<Item>emptyList()));
+      rows.add(new Row(Type.HEADER, SECTION_PROGRESS, Collections.<Item>emptyList()));
       for (Item item : working)
         rows.add(new Row(Type.PROGRESS, null, Collections.singletonList(item)));
     }
-    grid(rows, "Today", today, columns);
-    grid(rows, "This week", week, columns);
-    grid(rows, today.isEmpty() && week.isEmpty() ? "Saved" : "Earlier", earlier, columns);
+    grid(rows, SECTION_TODAY, today, columns);
+    grid(rows, SECTION_WEEK, week, columns);
+    grid(
+        rows,
+        today.isEmpty() && week.isEmpty() ? SECTION_SAVED : SECTION_EARLIER,
+        earlier,
+        columns);
     if (rows.isEmpty()) rows.add(new Row(Type.EMPTY, EMPTY_LIBRARY, Collections.<Item>emptyList()));
     return rows;
   }
 
-  private static void grid(List<Row> rows, String title, List<Item> items, int columns) {
+  private static void grid(List<Row> rows, String section, List<Item> items, int columns) {
     if (items.isEmpty()) return;
-    rows.add(new Row(Type.HEADER, title, Collections.<Item>emptyList()));
+    rows.add(new Row(Type.HEADER, section, Collections.<Item>emptyList()));
     for (int i = 0; i < items.size(); i += columns)
       rows.add(
           new Row(

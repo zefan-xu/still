@@ -249,7 +249,7 @@ final class SaveSession {
     pendingSave = false;
     if (granted) save(activity);
     else {
-      message = StoragePermission.DENIED;
+      message = app.getString(R.string.storage_denied);
       changed();
     }
   }

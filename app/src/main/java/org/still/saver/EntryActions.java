@@ -51,7 +51,7 @@ final class EntryActions {
 
   void open(DownloadStore.Entry e) {
     if (e.uri == null) {
-      listener.message("This file is no longer available. Find the post again.");
+      listener.message(text(R.string.entry_missing));
       return;
     }
     activity.startActivity(
@@ -64,7 +64,7 @@ final class EntryActions {
 
   void share(DownloadStore.Entry e) {
     if (e.uri == null) {
-      listener.message("The saved file is unavailable.");
+      listener.message(text(R.string.entry_unavailable));
       return;
     }
     Intent send =
@@ -72,57 +72,77 @@ final class EntryActions {
             .setType(e.mime)
             .putExtra(Intent.EXTRA_STREAM, e.uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    send.setClipData(ClipData.newRawUri("Saved media", e.uri));
+    send.setClipData(ClipData.newRawUri(text(R.string.entry_clip_label), e.uri));
     try {
-      activity.startActivity(Intent.createChooser(send, "Share saved file"));
+      activity.startActivity(Intent.createChooser(send, text(R.string.entry_share_title)));
     } catch (RuntimeException ex) {
-      listener.message("No app is available to share this file.");
+      listener.message(text(R.string.entry_share_error));
     }
   }
 
   void openSource(DownloadStore.Entry e) {
     if (e.source.isEmpty()) {
-      listener.message("This file has no post link.");
+      listener.message(text(R.string.entry_no_source));
       return;
     }
     try {
       activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(e.source)));
     } catch (RuntimeException ex) {
-      listener.message("No app can open this link.");
+      listener.message(text(R.string.entry_open_error));
     }
   }
 
   void menu(DownloadStore.Entry e) {
     List<Sheet.Action> actions = new ArrayList<>();
     if (saved(e)) {
-      actions.add(new Sheet.Action("Share", R.drawable.ic_share, false, () -> share(e)));
+      actions.add(
+          new Sheet.Action(
+              text(R.string.action_share), R.drawable.ic_share, false, () -> share(e)));
       if (video(e))
-        actions.add(new Sheet.Action("Make a GIF", R.drawable.ic_gif_box, false, () -> makeGif(e)));
+        actions.add(
+            new Sheet.Action(
+                text(R.string.entry_make_gif), R.drawable.ic_gif_box, false, () -> makeGif(e)));
     } else if (e.id != 0 && (!e.active() || e.status == DownloadManager.STATUS_PAUSED))
       actions.add(
           new Sheet.Action(
-              e.active() ? "Restart" : "Retry", R.drawable.ic_refresh, false, () -> retry(e)));
+              text(e.active() ? R.string.action_restart : R.string.action_retry),
+              R.drawable.ic_refresh,
+              false,
+              () -> retry(e)));
     if (!e.source.isEmpty())
       actions.add(
-          new Sheet.Action("Open original post", R.drawable.ic_open_in_new, false, () -> openSource(e)));
+          new Sheet.Action(
+              text(R.string.entry_open_source),
+              R.drawable.ic_open_in_new,
+              false,
+              () -> openSource(e)));
     if (e.active())
       actions.add(
-          new Sheet.Action("Cancel download", R.drawable.ic_close, true, () -> confirmCancel(e)));
+          new Sheet.Action(
+              text(R.string.entry_cancel), R.drawable.ic_close, true, () -> confirmCancel(e)));
     else {
       actions.add(
           new Sheet.Action(
-              "Remove from library", R.drawable.ic_close, false, () -> confirmRemove(e, false)));
-      actions.add(new Sheet.Action("Delete file", R.drawable.ic_delete, true, () -> confirmRemove(e, true)));
+              text(R.string.entry_remove),
+              R.drawable.ic_close,
+              false,
+              () -> confirmRemove(e, false)));
+      actions.add(
+          new Sheet.Action(
+              text(R.string.entry_delete),
+              R.drawable.ic_delete,
+              true,
+              () -> confirmRemove(e, true)));
     }
     sheet.actions(name(e), actions);
   }
 
   void confirmCancel(DownloadStore.Entry e) {
     sheet.confirm(
-        "Cancel download?",
-        "The partial file is discarded.",
-        "Keep",
-        "Cancel download",
+        text(R.string.entry_cancel_title),
+        text(R.string.entry_cancel_body),
+        text(R.string.action_keep),
+        text(R.string.entry_cancel),
         true,
         () -> remove(e, true));
   }
@@ -130,14 +150,13 @@ final class EntryActions {
   void promptDelete(DownloadStore.Entry e) {
     LinearLayout box =
         sheet.frame(
-            "Remove or delete?",
-            "Removing keeps the saved file in Downloads/"
-                + DownloadStore.folder(activity)
-                + ". Deleting removes the file from this device.");
+            text(R.string.entry_remove_or_delete_title),
+            activity.getString(
+                R.string.entry_remove_or_delete_body, DownloadStore.folder(activity)));
     box.addView(
         sheet.actionRow(
             new Sheet.Action(
-                "Remove from library",
+                text(R.string.entry_remove),
                 R.drawable.ic_close,
                 false,
                 () -> {
@@ -147,25 +166,26 @@ final class EntryActions {
     box.addView(
         sheet.actionRow(
             new Sheet.Action(
-                "Delete file",
+                text(R.string.entry_delete),
                 R.drawable.ic_delete,
                 true,
                 () -> {
                   sheet.dismiss();
                   remove(e, true);
                 })));
-    box.addView(sheet.actionRow(new Sheet.Action("Keep", 0, false, sheet::dismiss)));
+    box.addView(
+        sheet.actionRow(new Sheet.Action(text(R.string.action_keep), 0, false, sheet::dismiss)));
     sheet.show(box);
   }
 
   void confirmRemove(DownloadStore.Entry e, boolean delete) {
     sheet.confirm(
-        delete ? "Delete file?" : "Remove from library?",
+        text(delete ? R.string.entry_delete_title : R.string.entry_remove_title),
         delete
-            ? "The file is removed from Downloads."
-            : "The saved file stays in Downloads/" + DownloadStore.folder(activity) + ".",
-        "Keep",
-        delete ? "Delete" : "Remove",
+            ? text(R.string.entry_delete_body)
+            : activity.getString(R.string.entry_remove_body, DownloadStore.folder(activity)),
+        text(R.string.action_keep),
+        text(delete ? R.string.action_delete : R.string.action_remove),
         delete,
         () -> remove(e, delete));
   }
@@ -176,7 +196,7 @@ final class EntryActions {
       if (e.uri != null) Thumbnails.get(activity).forget(e.uri);
       listener.changed();
     } catch (RuntimeException ex) {
-      listener.message("Could not remove the file: " + ex.getMessage());
+      listener.message(activity.getString(R.string.entry_remove_error, ex.getMessage()));
     }
   }
 
@@ -184,10 +204,10 @@ final class EntryActions {
     Runnable run = () -> withStorage(RETRY, e);
     if (e.active())
       sheet.confirm(
-          "Restart download?",
-          "This starts the file over using your current Wi-Fi setting.",
-          "Keep waiting",
-          "Restart",
+          text(R.string.entry_restart_title),
+          text(R.string.entry_restart_body),
+          text(R.string.entry_keep_waiting),
+          text(R.string.action_restart),
           false,
           run);
     else run.run();
@@ -195,10 +215,10 @@ final class EntryActions {
 
   void makeGif(DownloadStore.Entry e) {
     sheet.confirm(
-        "Make a GIF?",
-        "Uses the first 60 seconds at 8 fps, up to 360 px. The video stays in your library.",
-        "Not now",
-        "Make GIF",
+        text(R.string.entry_gif_title),
+        text(R.string.entry_gif_body),
+        text(R.string.action_not_now),
+        text(R.string.entry_gif_action),
         false,
         () -> withStorage(GIF, e));
   }
@@ -215,10 +235,10 @@ final class EntryActions {
     if (GIF.equals(action)) {
       try {
         GifService.start(activity, e.uri, name(e));
-        listener.message("Making a GIF. Follow its progress in your library.");
+        listener.message(text(R.string.entry_gif_started));
         listener.changed();
       } catch (RuntimeException error) {
-        listener.message("Could not start the GIF. " + error.getMessage());
+        listener.message(activity.getString(R.string.entry_gif_error, error.getMessage()));
       }
       return;
     }
@@ -248,7 +268,7 @@ final class EntryActions {
     pendingAction = pendingKey = null;
     if (action == null || key == null) return;
     if (!granted) {
-      listener.message(StoragePermission.DENIED);
+      listener.message(text(R.string.storage_denied));
       return;
     }
     DownloadStore.Entry current;
@@ -259,5 +279,9 @@ final class EntryActions {
       return;
     }
     perform(action, current);
+  }
+
+  private String text(int resource) {
+    return activity.getString(resource);
   }
 }

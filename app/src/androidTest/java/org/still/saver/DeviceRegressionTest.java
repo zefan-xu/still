@@ -55,7 +55,7 @@ public final class DeviceRegressionTest {
     try {
       assertEquals(DownloadManager.STATUS_FAILED, missing.status);
       assertTrue(missing.unavailable);
-      assertTrue(missing.description().contains("unavailable"));
+      assertTrue(missing.description(c).contains("unavailable"));
       try {
         DownloadStore.retry(c, missing);
         fail("A local export has no network URL to retry");
@@ -80,7 +80,7 @@ public final class DeviceRegressionTest {
       assertTrue(running.active());
       assertEquals(6, running.bytes);
       assertEquals(12, running.total);
-      assertTrue(running.description().contains("50%"));
+      assertTrue(running.description(c).contains("50%"));
 
       assertTrue(
           DownloadStore.updateCookie(
@@ -97,7 +97,7 @@ public final class DeviceRegressionTest {
       DownloadStore.Entry paused = DownloadStore.list(c).get(0);
       assertEquals(DownloadManager.STATUS_PAUSED, paused.status);
       assertTrue(paused.active());
-      assertEquals("Waiting for Wi-Fi", paused.description());
+      assertEquals("Waiting for Wi-Fi", paused.description(c));
       assertEquals(12345, paused.data.getLong("retryAt"));
       assertEquals(2, paused.data.getInt("attempts"));
 

@@ -55,13 +55,18 @@ public class LibraryModelPropertyTest {
       headers.add(rows.get(i).text);
       assertTrue("Header without content", i + 1 < rows.size() && rows.get(i + 1).type != LibraryModel.Type.HEADER);
     }
-    List<String> order = java.util.Arrays.asList("In progress", "Today", "This week", "Earlier", "Saved");
+    List<String> order = java.util.Arrays.asList(
+        LibraryModel.SECTION_PROGRESS,
+        LibraryModel.SECTION_TODAY,
+        LibraryModel.SECTION_WEEK,
+        LibraryModel.SECTION_EARLIER,
+        LibraryModel.SECTION_SAVED);
     List<Integer> positions = new ArrayList<>();
     for (String header : headers) positions.add(order.indexOf(header));
     List<Integer> sorted = new ArrayList<>(positions);
     java.util.Collections.sort(sorted);
     assertEquals(sorted, positions);
-    assertFalse(headers.contains("Earlier") && headers.contains("Saved"));
+    assertFalse(headers.contains(LibraryModel.SECTION_EARLIER) && headers.contains(LibraryModel.SECTION_SAVED));
   }
 
   @Property(tries = 1500)

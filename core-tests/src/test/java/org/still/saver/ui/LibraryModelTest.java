@@ -58,14 +58,14 @@ public final class LibraryModelTest {
     List<LibraryModel.Row> rows = LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 3);
     assertEquals(
         Arrays.asList(
-            "HEADER In progress",
+            "HEADER progress",
             "PROGRESS w1",
             "PROGRESS f1",
-            "HEADER Today",
+            "HEADER today",
             "GRID t1 t2",
-            "HEADER This week",
+            "HEADER week",
             "GRID w2 w3",
-            "HEADER Earlier",
+            "HEADER earlier",
             "GRID e1 legacy"),
         describe(rows));
   }
@@ -76,7 +76,7 @@ public final class LibraryModelTest {
     for (int i = 0; i < 7; i++) items.add(saved("old" + i, 0));
     assertEquals(
         Arrays.asList(
-            "HEADER Saved", "GRID old0 old1 old2", "GRID old3 old4 old5", "GRID old6"),
+            "HEADER saved", "GRID old0 old1 old2", "GRID old3 old4 old5", "GRID old6"),
         describe(LibraryModel.build(items, null, NOW, UTC, Locale.ROOT, 3)));
   }
 
@@ -115,7 +115,7 @@ public final class LibraryModelTest {
             saved("midnight", at(2026, Calendar.OCTOBER, 12, 0)),
             saved("before", at(2026, Calendar.OCTOBER, 12, 0) - 1));
     assertEquals(
-        Arrays.asList("HEADER Today", "GRID midnight", "HEADER This week", "GRID before"),
+        Arrays.asList("HEADER today", "GRID midnight", "HEADER week", "GRID before"),
         describe(LibraryModel.build(items, "", lateEvening, UTC, Locale.ROOT, 3)));
   }
 
@@ -124,9 +124,9 @@ public final class LibraryModelTest {
     TimeZone tokyo = TimeZone.getTimeZone("Asia/Tokyo");
     // 15:00 UTC is already 00:00 the next day in Tokyo, so a 14:00 UTC item is "yesterday" there.
     List<LibraryModel.Item> items = Collections.singletonList(saved("a", at(2026, Calendar.OCTOBER, 12, 14)));
-    assertEquals(Arrays.asList("HEADER Today", "GRID a"), describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 3)));
+    assertEquals(Arrays.asList("HEADER today", "GRID a"), describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 3)));
     assertEquals(
-        Arrays.asList("HEADER This week", "GRID a"), describe(LibraryModel.build(items, "", NOW, tokyo, Locale.ROOT, 3)));
+        Arrays.asList("HEADER week", "GRID a"), describe(LibraryModel.build(items, "", NOW, tokyo, Locale.ROOT, 3)));
   }
 
   @Test
@@ -134,10 +134,10 @@ public final class LibraryModelTest {
     List<LibraryModel.Item> items = new ArrayList<>();
     for (int i = 0; i < 4; i++) items.add(saved("i" + i, NOW));
     assertEquals(
-        Arrays.asList("HEADER Today", "GRID i0 i1 i2 i3"),
+        Arrays.asList("HEADER today", "GRID i0 i1 i2 i3"),
         describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 4)));
     assertEquals(
-        Arrays.asList("HEADER Today", "GRID i0", "GRID i1", "GRID i2", "GRID i3"),
+        Arrays.asList("HEADER today", "GRID i0", "GRID i1", "GRID i2", "GRID i3"),
         describe(LibraryModel.build(items, "", NOW, UTC, Locale.ROOT, 1)));
   }
 
