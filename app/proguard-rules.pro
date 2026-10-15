@@ -8,6 +8,9 @@
 -keep class org.json.** { *; }
 -dontwarn org.json.**
 
+# Error Prone's annotations mention a compiler type that is not on the Android test classpath.
+-dontwarn javax.lang.model.element.Modifier
+
 # Device tests look these PlayerActivity fields up by name.
 -keepclassmembers class org.still.saver.PlayerActivity {
     private android.widget.VideoView video;
