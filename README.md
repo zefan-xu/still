@@ -109,7 +109,7 @@ A new version ships automatically every Monday at 15:00 UTC when app code on `ma
 
 <br>
 
-The release job needs four repository secrets: `RELEASE_KEYSTORE_BASE64` (the PKCS#12 keystore, base64-encoded), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. Keep an offline backup of the keystore: Android only installs updates signed with the same key, so losing it means every user must uninstall to upgrade. If the key ever changes, update `release/signing-certificate.sha256` in the same pull request.
+The release job needs four repository secrets: `RELEASE_KEYSTORE_BASE64` (the PKCS#12 keystore, base64-encoded), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. If any of them is missing, the job stops before Gradle and does not upload an unsigned APK. A local `assembleRelease` without those variables still writes `app-release-unsigned.apk`, which is what the reproducibility check compares. Keep an offline backup of the keystore: Android only installs updates signed with the same key, so losing it means every user must uninstall to upgrade. If the key ever changes, update `release/signing-certificate.sha256` in the same pull request.
 
 </details>
 
