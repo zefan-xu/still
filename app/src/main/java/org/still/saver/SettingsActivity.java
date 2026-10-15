@@ -33,11 +33,13 @@ import org.still.saver.ui.Ui;
 
 /** Grouped preferences. Every change is saved immediately; pickers open as sheets. */
 public final class SettingsActivity extends Activity {
-  static final String[] QUALITY_LABELS = {
-    "Choose for each item", "Best available", "Smallest available"
+  static final int[] QUALITY_LABELS = {
+    R.string.settings_quality_ask, R.string.settings_quality_best, R.string.settings_quality_smallest
   };
   static final String[] QUALITY_VALUES = {"ask", "best", "smallest"};
-  static final String[] THEME_LABELS = {"Follow system", "Light", "Dark"};
+  static final int[] THEME_LABELS = {
+    R.string.settings_theme_system, R.string.settings_theme_light, R.string.settings_theme_dark
+  };
   static final String[] THEME_VALUES = {"system", "light", "dark"};
   static final String DEFAULT_API = "https://api.fxtwitter.com";
 
@@ -59,7 +61,7 @@ public final class SettingsActivity extends Activity {
     LinearLayout content = ui.column();
     LinearLayout top = ui.row();
     top.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), 0);
-    top.addView(ui.iconButton(R.drawable.ic_arrow_back, "Back", this::finish));
+    top.addView(ui.iconButton(R.drawable.ic_arrow_back, getString(R.string.action_back), this::finish));
     content.addView(top);
     scroll = new ScrollView(this);
     list = ui.column();
@@ -82,18 +84,18 @@ public final class SettingsActivity extends Activity {
   private void render() {
     int scrollY = scroll.getScrollY();
     list.removeAllViews();
-    TextView title = ui.display("Settings");
+    TextView title = ui.display(getString(R.string.settings_title));
     title.setPadding(ui.dp(24), ui.dp(4), ui.dp(24), ui.dp(8));
     list.addView(title);
 
-    section("Saving");
+    section(R.string.settings_saving_title);
     list.addView(
         ui.valueRow(
-            "Default quality",
+            getString(R.string.settings_quality),
             label(QUALITY_LABELS, QUALITY_VALUES, prefs().getString("quality", "ask")),
             () ->
                 choose(
-                    "Default quality",
+                    R.string.settings_quality,
                     QUALITY_LABELS,
                     QUALITY_VALUES,
                     "quality",
@@ -101,27 +103,31 @@ public final class SettingsActivity extends Activity {
                     false)));
     list.addView(
         ui.switchRow(
-            "Save automatically",
-            "Save at your default quality right after you share or submit a link.",
+            getString(R.string.settings_auto),
+            getString(R.string.settings_auto_summary),
             prefs().getBoolean("auto", false),
             (b, checked) -> prefs().edit().putBoolean("auto", checked).apply()));
-    list.addView(ui.valueRow("Folder", "Downloads/" + DownloadStore.folder(this), this::editFolder));
+    list.addView(
+        ui.valueRow(
+            getString(R.string.settings_folder),
+            getString(R.string.settings_folder_summary, DownloadStore.folder(this)),
+            this::editFolder));
 
-    section("Downloads");
+    section(R.string.settings_downloads_title);
     list.addView(
         ui.switchRow(
-            "Wi-Fi downloads only",
-            "Applies to new downloads. Finding media and previews can still use mobile data.",
+            getString(R.string.settings_wifi),
+            getString(R.string.settings_wifi_summary),
             prefs().getBoolean("wifi", false),
             (b, checked) -> prefs().edit().putBoolean("wifi", checked).apply()));
     int parallel = prefs().getInt("parallel", 2);
     list.addView(
         ui.valueRow(
-            "At a time",
-            parallel + " at a time",
+            getString(R.string.settings_parallel),
+            getResources().getQuantityString(R.plurals.settings_parallel_summary, parallel, parallel),
             () ->
                 sheet.choice(
-                    "Downloads at a time",
+                    getString(R.string.settings_parallel_title),
                     new String[] {"1", "2", "3", "4"},
                     parallel - 1,
                     index -> {
@@ -129,61 +135,65 @@ public final class SettingsActivity extends Activity {
                       render();
                     })));
 
-    section("Appearance");
+    section(R.string.settings_appearance_title);
     list.addView(
         ui.valueRow(
-            "Theme",
+            getString(R.string.settings_theme),
             label(THEME_LABELS, THEME_VALUES, prefs().getString("theme", "system")),
-            () -> choose("Theme", THEME_LABELS, THEME_VALUES, "theme", "system", true)));
+            () ->
+                choose(R.string.settings_theme, THEME_LABELS, THEME_VALUES, "theme", "system", true)));
 
-    section("Sources");
+    section(R.string.settings_sources_title);
     list.addView(
         ui.valueRow(
-            "Supported links",
-            Platforms.ALL.size() + " platforms · public posts only",
+            getString(R.string.links_title),
+            getResources()
+                .getQuantityString(
+                    R.plurals.settings_links_summary, Platforms.ALL.size(), Platforms.ALL.size()),
             () -> sheet.show(SupportedLinks.build(ui, sheet))));
     String api = prefs().getString("api", DEFAULT_API);
-    list.addView(ui.valueRow("X metadata service", URI.create(api).getHost(), this::editApi));
+    list.addView(
+        ui.valueRow(getString(R.string.settings_api), URI.create(api).getHost(), this::editApi));
     list.addView(
         ui.valueRow(
-            "On-device extractor",
+            getString(R.string.settings_extractor),
             updating
-                ? "Checking the official yt-dlp release…"
+                ? getString(R.string.settings_extractor_checking)
                 : extractorVersion == null ? "yt-dlp" : "yt-dlp " + extractorVersion,
             updating ? null : this::confirmUpdate));
 
-    section("About");
+    section(R.string.settings_about_title);
     list.addView(
         ui.valueRow(
-            "Show tutorial",
-            "Sharing to Still and pasting links",
+            getString(R.string.settings_tutorial),
+            getString(R.string.settings_tutorial_summary),
             () -> startActivity(new Intent(this, OnboardingActivity.class))));
-    list.addView(ui.valueRow("Still " + version(), "Open source · GPL-3.0-or-later", null));
-    list.addView(ui.valueRow("Open-source licenses", null, this::licenses));
-    TextView note =
-        ui.caption(
-            "No ads, analytics, purchases or accounts. Preferences and history stay on this"
-                + " device. Public media only: login-required, deleted and protected posts may not"
-                + " be available.");
+    list.addView(
+        ui.valueRow(
+            getString(R.string.settings_version, version()),
+            getString(R.string.settings_version_summary),
+            null));
+    list.addView(ui.valueRow(getString(R.string.settings_licenses), null, this::licenses));
+    TextView note = ui.caption(getString(R.string.settings_privacy));
     note.setPadding(ui.dp(24), ui.dp(16), ui.dp(24), 0);
     list.addView(note);
     scroll.post(() -> scroll.scrollTo(0, scrollY));
   }
 
-  private void section(String title) {
-    TextView header = ui.sectionHeader(title);
+  private void section(int title) {
+    TextView header = ui.sectionHeader(getString(title));
     header.setPadding(ui.dp(24), ui.dp(28), ui.dp(24), ui.dp(4));
     list.addView(header);
   }
 
-  private static String label(String[] labels, String[] values, String value) {
-    for (int i = 0; i < values.length; i++) if (values[i].equals(value)) return labels[i];
+  private String label(int[] labels, String[] values, String value) {
+    for (int i = 0; i < values.length; i++) if (values[i].equals(value)) return getString(labels[i]);
     throw new IllegalStateException("Unknown setting value: " + value);
   }
 
   private void choose(
-      String title,
-      String[] labels,
+      int title,
+      int[] labels,
       String[] values,
       String key,
       String defaultValue,
@@ -191,9 +201,11 @@ public final class SettingsActivity extends Activity {
     String current = prefs().getString(key, defaultValue);
     int selected = 0;
     for (int i = 0; i < values.length; i++) if (values[i].equals(current)) selected = i;
+    String[] texts = new String[labels.length];
+    for (int i = 0; i < labels.length; i++) texts[i] = getString(labels[i]);
     sheet.choice(
-        title,
-        labels,
+        getString(title),
+        texts,
         selected,
         index -> {
           prefs().edit().putString(key, values[index]).apply();
@@ -213,14 +225,14 @@ public final class SettingsActivity extends Activity {
   private void editFolder() {
     EditText field = formField(DownloadStore.folder(this), InputType.TYPE_CLASS_TEXT);
     sheet.form(
-        "Folder inside Downloads",
-        "New saves go here. Existing files stay where they are.",
+        getString(R.string.settings_folder_title),
+        getString(R.string.settings_folder_body),
         field,
-        "Save",
+        getString(R.string.action_save),
         name ->
             name.matches("[A-Za-z0-9 _-]{1,60}")
                 ? null
-                : "Use 1–60 letters, numbers, spaces, _ or -",
+                : getString(R.string.settings_folder_error),
         ignored -> {
           prefs().edit().putString("folder", field.getText().toString().trim()).apply();
           render();
@@ -233,17 +245,16 @@ public final class SettingsActivity extends Activity {
             prefs().getString("api", DEFAULT_API),
             InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
     sheet.form(
-        "X metadata service",
-        "FxTwitter is an open-source public service. You can use a compatible self-hosted HTTPS"
-            + " endpoint.",
+        getString(R.string.settings_api),
+        getString(R.string.settings_api_body),
         field,
-        "Save",
+        getString(R.string.action_save),
         value -> {
           try {
             new MediaResolver(value);
             return null;
           } catch (IllegalArgumentException e) {
-            return "Enter an HTTPS endpoint without credentials or query parameters";
+            return getString(R.string.settings_api_error);
           }
         },
         ignored -> {
@@ -267,11 +278,10 @@ public final class SettingsActivity extends Activity {
 
   private void confirmUpdate() {
     sheet.confirm(
-        "Update the extractor?",
-        "Still downloads the latest official yt-dlp release from GitHub. Update when a supported"
-            + " site stops working.",
-        "Not now",
-        "Update",
+        getString(R.string.settings_update_title),
+        getString(R.string.settings_update_body),
+        getString(R.string.action_not_now),
+        getString(R.string.settings_update_action),
         false,
         this::updateExtractor);
   }
@@ -284,9 +294,9 @@ public final class SettingsActivity extends Activity {
           String result;
           try {
             ExtractorRuntime.update(getApplicationContext());
-            result = "The extractor is up to date.";
+            result = getString(R.string.settings_update_done);
           } catch (Exception e) {
-            result = "Update failed. Check your connection and try again.";
+            result = getString(R.string.settings_update_failed);
           }
           String version = ExtractorRuntime.installedVersion(getApplicationContext());
           String message = result;
@@ -311,7 +321,7 @@ public final class SettingsActivity extends Activity {
 
   private void licenses() {
     String[][] components = {
-      {"Still", "LICENSE"},
+      {getString(R.string.app_name), "LICENSE"},
       {"Source Serif 4 (SIL OFL 1.1)", "licenses/SourceSerif4-OFL-1.1.txt"},
       {"Material Symbols (Apache-2.0)", "licenses/Apache-2.0.txt"},
       {"youtubedl-android (GPL-3.0)", "licenses/youtubedl-android-GPL-3.0.txt"},
@@ -319,12 +329,12 @@ public final class SettingsActivity extends Activity {
       {"jsoup (MIT)", "licenses/jsoup-MIT.txt"},
       {"Python", "licenses/Python.txt"},
       {"QuickJS (MIT)", "licenses/QuickJS-MIT.txt"},
-      {"Third-party notices", "licenses/THIRD_PARTY_NOTICES.md"},
+      {getString(R.string.settings_licenses_notices), "licenses/THIRD_PARTY_NOTICES.md"},
     };
     List<Sheet.Action> actions = new ArrayList<>();
     for (String[] component : components)
       actions.add(new Sheet.Action(component[0], 0, false, () -> license(component[0], component[1])));
-    sheet.actions("Open-source licenses", actions);
+    sheet.actions(getString(R.string.settings_licenses), actions);
   }
 
   private void license(String title, String asset) {

@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import org.still.saver.R;
 
 /** Calm confirmation at the bottom of the screen; replaces toasts inside the app. */
 public final class Snackbar {
@@ -36,7 +37,7 @@ public final class Snackbar {
     bar.setMinimumHeight(ui.dp(52));
     bar.setBackground(ui.shape(t.ink, 14, 0));
     bar.setElevation(ui.dp(6));
-    text = ui.body(message == null ? "The action could not be completed." : message);
+    text = ui.body(message == null ? ui.activity.getString(R.string.snackbar_fallback) : message);
     text.setTextColor(t.onInk);
     text.setTextSize(15);
     text.setMaxLines(3);

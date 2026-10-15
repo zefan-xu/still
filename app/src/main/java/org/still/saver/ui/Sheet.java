@@ -99,7 +99,7 @@ public final class Sheet {
     Theme t = ui.theme;
     scrim = new View(ui.activity);
     scrim.setBackgroundColor(t.scrim);
-    scrim.setContentDescription("Close");
+    scrim.setContentDescription(ui.activity.getString(R.string.action_close));
     scrim.setOnClickListener(
         v -> {
           if (cancelable) dismiss();
@@ -127,7 +127,8 @@ public final class Sheet {
         new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
     params.topMargin = ui.insetTop() + ui.dp(48);
     host.addView(panel, params);
-    if (Build.VERSION.SDK_INT >= 28) panel.setAccessibilityPaneTitle("Sheet");
+    if (Build.VERSION.SDK_INT >= 28)
+      panel.setAccessibilityPaneTitle(ui.activity.getString(R.string.sheet_pane_title));
     hideBehind(true);
     View enteringScrim = scrim, enteringPanel = panel;
     float lift = ui.dp(24);
@@ -361,7 +362,10 @@ public final class Sheet {
       row.setFocusable(true);
       row.setClickable(true);
       row.setSelected(i == selected);
-      row.setContentDescription(labels[i] + (i == selected ? ", selected" : ""));
+      row.setContentDescription(
+          i == selected
+              ? ui.activity.getString(R.string.sheet_selected_description, labels[i])
+              : labels[i]);
       row.setOnClickListener(
           v -> {
             dismiss();
