@@ -61,7 +61,7 @@ Default device runs select **34 offline checks**: 8 state regressions, 2 core er
 
 ## Reports and isolation
 
-Each command writes timestamped logs and `report.json` under ignored `artifacts/test-runs/`. Live runs collect fresh per-platform JSON before removing their private media copies. JVM JUnit results are in `core-tests/build/test-results/test/`; lint reports are in `app/build/reports/`. Inspect logs before sharing: transient provider errors may contain URL details. Success reports do not intentionally include signed download URLs or cookies.
+Each command writes timestamped logs and `report.json` under ignored `artifacts/test-runs/`. Live runs collect fresh per-platform JSON before removing their private media copies. JVM JUnit results are in `core-tests/build/test-results/test/` and `app/build/test-results/testDebugUnitTest/`; lint reports are in `app/build/reports/`. Inspect logs before sharing: transient provider errors may contain URL details. Success reports do not intentionally include signed download URLs or cookies.
 
 The runner rejects failed, skipped, empty, incomplete or duplicate instrumentation results, results that disagree with the test count Android declares, and missing requested tests. It checks Android's protocol and JUnit summary because `adb` can exit zero after assertion failures. Instrumentation timeout stops test processes and aborts later suites; dispose of that isolated emulator before retrying.
 
@@ -82,7 +82,7 @@ python3 scripts/readme_art.py artifacts/test-runs/<run>/screenshots
 
 | Workflow | When | What |
 | --- | --- | --- |
-| [CI](.github/workflows/ci.yml) | Every pull request and push to `main` | actionlint, then `scripts/test.py local`, then the offline device suite on API 29 and API 35 emulators and the legacy selection on an API 28 emulator. The **CI passed** job is the single required check; it does not yet wait for the API 28 job |
+| [CI](.github/workflows/ci.yml) | Every pull request and push to `main` | actionlint, then `scripts/test.py local` (core-tests plus `:app:testDebugUnitTest`), then the offline device suite on API 29 and API 35 emulators and the legacy selection on an API 28 emulator. The **CI passed** job is the single required check; it does not yet wait for the API 28 job |
 | [Release](.github/workflows/release.yml) | Mondays 15:00 UTC, or by hand | Plans a version from tags and changed app files, reruns CI on that commit, builds the signed APK, verifies its version, certificate and notices, installs and launches it on an API 35 emulator, then publishes it |
 | [Live platforms](.github/workflows/live.yml) | Sundays 14:00 UTC, or by hand | The live suite on API 35. The emulator step exits 0 when every failure is a platform that refused GitHub's network, and exits 1 when a platform or the runner is broken. The report job writes that verdict on scheduled and manual runs. Scheduled runs open or update a `live-check` issue only when a platform is broken, and a `live-blocked` issue after three scheduled weeks in a row in which platforms were only blocked |
 | [Pull request](.github/workflows/pull-request.yml) | Pull requests | Labels by path for release notes; auto-merges non-major Dependabot updates once CI passes |

@@ -42,6 +42,7 @@ android {
             if (System.getenv('STILL_KEYSTORE')) signingConfig signingConfigs.release
         }
     }
+    testOptions.unitTests.returnDefaultValues = true
     lint {
         abortOnError true
         warningsAsErrors true
@@ -63,6 +64,14 @@ tasks.register('copyLicenseAssets', Copy) {
     into layout.buildDirectory.dir('generated/licenseAssets/licenses')
 }
 tasks.named('preBuild').configure { dependsOn 'copyLicenseAssets' }
+
+// android.jar ships a stub org.json that throws. Unit tests need the real parser, ahead of that jar.
+tasks.withType(Test).configureEach {
+    doFirst {
+        def jsonJars = classpath.files.findAll { it.name.startsWith('json-') && it.name.endsWith('.jar') }
+        if (!jsonJars.isEmpty()) classpath = files(jsonJars) + classpath
+    }
+}
 
 dependencies {
     implementation 'org.jsoup:jsoup:1.23.2'
