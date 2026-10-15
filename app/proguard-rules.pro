@@ -1,6 +1,11 @@
 # yt-dlp runs through youtubedl-android. The bridge loads libpython by name and Jackson
 # reflects over the mapper types, so R8 must not rename or remove them.
 -keep class com.yausername.youtubedl_android.** { *; }
+-keep class com.yausername.youtubedl_common.** { *; }
+# ZipUtils.unzip goes through commons-compress. ExtraFieldUtils registers these
+# with Class.newInstance, so R8 must leave the classes and their members in place
+# or Python init fails with "is not a concrete class".
+-keep class org.apache.commons.compress.archivers.zip.** { *; }
 -keep class com.fasterxml.jackson.** { *; }
 -dontwarn com.fasterxml.jackson.**
 
