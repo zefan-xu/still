@@ -1,12 +1,6 @@
 # yt-dlp runs through youtubedl-android. The bridge loads libpython by name and Jackson
 # reflects over the mapper types, so R8 must not rename or remove them.
 -keep class com.yausername.youtubedl_android.** { *; }
-# The instrumentation runner's FileTestStorage is Kotlin. Minifying the test APK drops
-# kotlin.jvm.internal.Lambda unless it is kept in both the app and the test.
--keep class kotlin.jvm.internal.** { *; }
--keep class kotlin.jvm.functions.** { *; }
--keep class kotlin.Metadata { *; }
--dontwarn kotlin.**
 -keep class com.fasterxml.jackson.** { *; }
 -dontwarn com.fasterxml.jackson.**
 
