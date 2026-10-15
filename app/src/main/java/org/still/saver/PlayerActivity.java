@@ -135,6 +135,7 @@ public final class PlayerActivity extends Activity {
                 snackbar.show(text);
               }
             });
+    actions.restoreState(state);
     loadItems(state);
     pager = new Pager(this);
     stage.addView(pager, new FrameLayout.LayoutParams(-1, -1));
@@ -1123,6 +1124,7 @@ public final class PlayerActivity extends Activity {
     if (entry != null) state.putString("entry", entry.key);
     state.putInt("index", currentIndex);
     if (video != null) state.putInt("position", video.getCurrentPosition());
+    actions.saveState(state);
   }
 
   @Override
