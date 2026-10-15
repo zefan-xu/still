@@ -9,10 +9,12 @@
 -keep class kotlinx.** { *; }
 -dontwarn kotlinx.**
 
-# Espresso and the app both depend on this jar. The app never references it, so R8
-# drops it and the test APK still expects it in the app dex.
+# Espresso and the app both depend on these. The app never references them, so R8
+# drops them and the test APK still expects them in the app dex.
 -keep class com.google.common.util.concurrent.** { *; }
 -dontwarn com.google.common.util.concurrent.**
+-keep class androidx.concurrent.futures.** { *; }
+-dontwarn androidx.concurrent.futures.**
 
 # Instrumentation calls members the app itself does not (the two-argument Media
 # constructor, ShareActivity.session, PlayerActivity.pageCount). Release shrinking
