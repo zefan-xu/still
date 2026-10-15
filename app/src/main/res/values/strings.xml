@@ -295,10 +295,10 @@
     <string name="settings_extractor">On-device extractor</string>
     <string name="settings_extractor_checking">Checking the official yt-dlp release…</string>
     <string name="settings_update_title">Update the extractor?</string>
-    <string name="settings_update_body">Still downloads the latest official yt-dlp release from GitHub. Update when a supported site stops working.</string>
+    <string name="settings_update_body">Still downloads the latest official yt-dlp release from GitHub and checks its published checksum before installing it. Update when a supported site stops working.</string>
     <string name="settings_update_action">Update</string>
     <string name="settings_update_done">The extractor is up to date.</string>
-    <string name="settings_update_failed">Update failed. Check your connection and try again.</string>
+    <string name="settings_update_failed">Update failed. The installed extractor was left unchanged.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_tutorial">Show tutorial</string>
     <string name="settings_tutorial_summary">Sharing to Still and pasting links</string>

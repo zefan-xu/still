@@ -8,7 +8,9 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 
@@ -16,6 +18,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LATEST = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 ASSET = "yt-dlp"
 SUMS = "SHA2-256SUMS"
+SIG = "SHA2-256SUMS.sig"
+KEY = ROOT / "release" / "yt-dlp-signing-key.asc"
 BINARY = "app/src/main/res/raw/ytdlp"
 RUNTIME = "app/src/main/java/org/still/saver/ExtractorRuntime.java"
 NOTICES = "THIRD_PARTY_NOTICES.md"
@@ -93,17 +97,46 @@ def problems(root):
 
 
 def stable_release(release):
-    """Returns (version, zipapp asset, checksum asset) for a stable yt-dlp release, or raises ValueError."""
+    """Returns (version, zipapp, checksum file, signature) for a stable yt-dlp release, or raises ValueError."""
     version = release.get("tag_name", "")
     if release.get("draft") or release.get("prerelease"):
         raise ValueError(f"yt-dlp {version} is not a stable release")
     if not TAG.fullmatch(version):
         raise ValueError(f"yt-dlp tag {version!r} is not a YYYY.MM.DD version ExtractorRuntime can compare")
     assets = {asset["name"]: asset for asset in release.get("assets", [])}
-    missing = [name for name in (ASSET, SUMS) if name not in assets]
+    missing = [name for name in (ASSET, SUMS, SIG) if name not in assets]
     if missing:
         raise ValueError(f"yt-dlp {version} has no {' or '.join(missing)} asset")
-    return version, assets[ASSET], assets[SUMS]
+    return version, assets[ASSET], assets[SUMS], assets[SIG]
+
+
+def gpg_verify(sums, signature, key=None):
+    """Confirms `signature` is a signature of `sums` by the pinned yt-dlp release key."""
+    if not isinstance(sums, (bytes, bytearray)) or not isinstance(signature, (bytes, bytearray)):
+        raise ValueError(f"{SUMS} and {SIG} must be bytes")
+    key_path = KEY if key is None else Path(key)
+    if not key_path.is_file():
+        raise ValueError(f"Pinned yt-dlp signing key is missing: {key_path}")
+    try:
+        with tempfile.TemporaryDirectory(prefix="still-gpg-") as home:
+            env = os.environ.copy()
+            env["GNUPGHOME"] = home
+            imported = subprocess.run(["gpg", "--batch", "--import", str(key_path)],
+                                      env=env, capture_output=True)
+            if imported.returncode != 0:
+                detail = imported.stderr.decode("utf-8", "replace").strip()
+                raise ValueError(f"Could not import the yt-dlp signing key: {detail}")
+            sums_path = Path(home) / SUMS
+            sig_path = Path(home) / SIG
+            sums_path.write_bytes(bytes(sums))
+            sig_path.write_bytes(bytes(signature))
+            verified = subprocess.run(["gpg", "--batch", "--verify", str(sig_path), str(sums_path)],
+                                      env=env, capture_output=True)
+            if verified.returncode != 0:
+                detail = verified.stderr.decode("utf-8", "replace").strip()
+                raise ValueError(f"{SIG} did not verify: {detail}")
+    except FileNotFoundError:
+        raise ValueError(f"gpg is required to verify {SIG}") from None
 
 
 def published_sha256(sums, name):
@@ -116,14 +149,18 @@ def published_sha256(sums, name):
 
 def update(root, fetch):
     """Replaces the bundled yt-dlp with the latest stable release; returns what changed. Writes nothing on error."""
-    version, asset, sums_asset = stable_release(json.loads(fetch(LATEST)))
+    version, asset, sums_asset, sig_asset = stable_release(json.loads(fetch(LATEST)))
     texts = {path: (root / path).read_text() for path in (RUNTIME, NOTICES)}
     previous = only_match(texts[RUNTIME], RUNTIME, REFERENCES[0][1]).group("version")
     if version < previous:
         raise ValueError(f"The latest stable yt-dlp {version} is older than the bundled {previous}")
     if version == previous and not problems(root):
         return {"changed": False, "version": version, "previous": previous}
-    expected = published_sha256(fetch(sums_asset["browser_download_url"]).decode("utf-8"), ASSET)
+    sums_bytes = fetch(sums_asset["browser_download_url"])
+    signature = fetch(sig_asset["browser_download_url"])
+    verifier = getattr(fetch, "verify_signature", None) or gpg_verify
+    verifier(sums_bytes, signature)
+    expected = published_sha256(sums_bytes.decode("utf-8"), ASSET)
     data = fetch(asset["browser_download_url"])
     values = description(data)
     if values["sha256"] != expected:
@@ -160,7 +197,7 @@ def command_update(args):
         message = f"Re-downloaded yt-dlp {result['version']} because the bundled files disagreed."
     else:
         message = (f"Updated the bundled yt-dlp from {result['previous']} to {result['version']} "
-                   f"({result['size']:,} bytes, SHA-256 {result['sha256']}, matching {SUMS}).")
+                   f"({result['size']:,} bytes, SHA-256 {result['sha256']}, matching signed {SUMS}).")
     print(message)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
