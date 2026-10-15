@@ -35,11 +35,15 @@ def release_zipapp(version):
 class FakeRelease:
     """Serves the GitHub API response and assets of one release, recording what was requested."""
 
-    def __init__(self, tag, binary, sums=None, digest=True, prerelease=False, names=(ytdlp.ASSET, ytdlp.SUMS)):
+    def __init__(self, tag, binary, sums=None, digest=True, prerelease=False, names=None, signature=b"signed"):
+        if names is None:
+            names = (ytdlp.ASSET, ytdlp.SUMS, ytdlp.SIG)
         digest_hex = hashlib.sha256(binary).hexdigest()
         if sums is None:
             sums = f"{'1' * 64}  yt-dlp.exe\n{digest_hex}  yt-dlp\n{'2' * 64}  yt-dlp_linux\n"
-        self.responses = {DOWNLOAD + f"{tag}/{ytdlp.ASSET}": binary, DOWNLOAD + f"{tag}/{ytdlp.SUMS}": sums.encode()}
+        self.responses = {DOWNLOAD + f"{tag}/{ytdlp.ASSET}": binary,
+                          DOWNLOAD + f"{tag}/{ytdlp.SUMS}": sums.encode(),
+                          DOWNLOAD + f"{tag}/{ytdlp.SIG}": signature}
         assets = [{"name": name, "browser_download_url": DOWNLOAD + f"{tag}/{name}"} for name in names]
         for asset in assets:
             if digest and asset["browser_download_url"] in self.responses:
@@ -47,6 +51,7 @@ class FakeRelease:
         self.responses[ytdlp.LATEST] = json.dumps({"tag_name": tag, "draft": False, "prerelease": prerelease,
                                                    "assets": assets}).encode()
         self.requests = []
+        self.verify_signature = lambda sums, sig: None
 
     def __call__(self, url):
         self.requests.append(url)
@@ -139,8 +144,40 @@ class UpdateTest(unittest.TestCase):
         binary = release_zipapp(NEWER)
         self.assertRefused(FakeRelease(NEWER, binary, prerelease=True), "not a stable release")
         self.assertRefused(FakeRelease(NEWER + ".232323", binary), "not a YYYY.MM.DD version")
-        self.assertRefused(FakeRelease(NEWER, binary, names=(ytdlp.ASSET,)), "no SHA2-256SUMS asset")
-        self.assertRefused(FakeRelease(NEWER, binary, names=(ytdlp.SUMS, "yt-dlp_linux")), "no yt-dlp asset")
+        self.assertRefused(FakeRelease(NEWER, binary, names=(ytdlp.ASSET,)),
+                           "no SHA2-256SUMS or SHA2-256SUMS.sig asset")
+        self.assertRefused(FakeRelease(NEWER, binary, names=(ytdlp.ASSET, ytdlp.SUMS)), "no SHA2-256SUMS.sig asset")
+        self.assertRefused(FakeRelease(NEWER, binary, names=(ytdlp.SUMS, ytdlp.SIG)), "no yt-dlp asset")
+
+    def test_a_rejected_signature_leaves_the_checkout_unchanged(self):
+        release = FakeRelease(NEWER, release_zipapp(NEWER))
+
+        def reject(sums, signature):
+            raise ValueError("SHA2-256SUMS.sig did not verify")
+
+        release.verify_signature = reject
+        self.assertRefused(release, "did not verify")
+
+    def test_a_fetcher_without_a_verifier_uses_gpg(self):
+        binary = release_zipapp(NEWER)
+        release = FakeRelease(NEWER, binary)
+        seen = []
+
+        def fetch(url):
+            return release(url)
+
+        def record(sums, signature, key=None):
+            seen.append((sums, signature, key))
+
+        original = ytdlp.gpg_verify
+        ytdlp.gpg_verify = record
+        try:
+            result = ytdlp.update(self.root, fetch)
+        finally:
+            ytdlp.gpg_verify = original
+        self.assertTrue(result["changed"])
+        self.assertEqual(seen, [(release.responses[DOWNLOAD + f"{NEWER}/{ytdlp.SUMS}"],
+                                 release.responses[DOWNLOAD + f"{NEWER}/{ytdlp.SIG}"], None)])
 
     def test_older_releases_are_refused(self):
         self.assertRefused(FakeRelease("2025.12.31", release_zipapp("2025.12.31")), "older than the bundled")
@@ -170,6 +207,24 @@ class ZipappVersionTest(unittest.TestCase):
         literal = re.search(r'Pattern\.compile\(\s*"((?:[^"\\]|\\.)*)"\)', java).group(1)
         self.assertEqual(literal.replace('\\"', '"').replace("\\\\", "\\"), ytdlp.VERSION_PY.pattern)
         self.assertIn(f"getSize() > {ytdlp.VERSION_PY_LIMIT}", java)
+
+
+class SignatureTest(unittest.TestCase):
+    def test_pinned_key_accepts_the_published_checksum_file(self):
+        directory = Path(__file__).parent / "fixtures"
+        sums = (directory / "SHA2-256SUMS").read_bytes()
+        signature = (directory / "SHA2-256SUMS.sig").read_bytes()
+        ytdlp.gpg_verify(sums, signature)
+        tampered = bytearray(sums)
+        tampered[0] ^= 0x01
+        with self.assertRaisesRegex(ValueError, "did not verify"):
+            ytdlp.gpg_verify(bytes(tampered), signature)
+
+    def test_refuses_a_missing_or_unreadable_key(self):
+        with self.assertRaisesRegex(ValueError, "signing key is missing"):
+            ytdlp.gpg_verify(b"sums", b"sig", key=Path(__file__).parent / "missing-key.asc")
+        with self.assertRaisesRegex(ValueError, "must be bytes"):
+            ytdlp.gpg_verify("sums", b"sig")
 
 
 class CommittedBundleTest(unittest.TestCase):

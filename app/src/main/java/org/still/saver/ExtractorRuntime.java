@@ -11,6 +11,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.concurrent.locks.ReentrantLock;
@@ -18,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.still.saver.core.YtDlpUpdate;
 
 /** Installs the pinned bundled extractor on first use or upgrade, preserving newer user updates. */
 public final class ExtractorRuntime {
@@ -55,16 +58,24 @@ public final class ExtractorRuntime {
     }
   }
 
+  /**
+   * Replaces the installed extractor with a newer stable release. The previous file stays in place
+   * unless the download matches SHA2-256SUMS and the zipapp version matches the tag. The library
+   * updater is not used: it does not check those checksums, and a failed copy can delete the
+   * executable that is already installed.
+   */
   public static void update(Context context) throws Exception {
     RUNTIME_LOCK.lockInterruptibly();
     try {
       initLocked(context);
-      YoutubeDL.INSTANCE.updateYoutubeDL(
-          context.getApplicationContext(), YoutubeDL.UpdateChannel._STABLE);
-    } catch (Exception failure) {
-      // A failed upstream copy can remove the old executable. Repair it on next use.
-      ready = false;
-      throw failure;
+      Context app = context.getApplicationContext();
+      File directory =
+          new File(new File(app.getNoBackupFilesDir(), YoutubeDL.baseName), YoutubeDL.ytdlpDirName);
+      File installed = new File(directory, YoutubeDL.ytdlpBin);
+      String json = new String(download(YtDlpUpdate.LATEST), StandardCharsets.UTF_8);
+      YtDlpUpdate.Release release = YtDlpUpdate.stable(json);
+      if (!YtDlpUpdate.needsInstall(installedVersion(installed), release.version)) return;
+      installVerified(directory, installed, YtDlpUpdate.verifiedZipapp(release, ExtractorRuntime::download));
     } finally {
       RUNTIME_LOCK.unlock();
     }
@@ -139,6 +150,68 @@ public final class ExtractorRuntime {
       Os.rename(temporary.getAbsolutePath(), installed.getAbsolutePath());
     } finally {
       temporary.delete();
+    }
+  }
+
+  /** Writes an already-verified zipapp over the installed file. The old file remains if this throws. */
+  private static void installVerified(File directory, File installed, byte[] binary) throws Exception {
+    if (!directory.isDirectory() && !directory.mkdirs())
+      throw new IOException("Could not create the extractor directory");
+    File temporary = File.createTempFile(".still-yt-dlp-", ".tmp", directory);
+    try {
+      try (FileOutputStream destination = new FileOutputStream(temporary)) {
+        destination.write(binary);
+        destination.getFD().sync();
+      }
+      Os.rename(temporary.getAbsolutePath(), installed.getAbsolutePath());
+    } finally {
+      temporary.delete();
+    }
+  }
+
+  private static byte[] download(String url) throws IOException {
+    URI uri;
+    try {
+      uri = URI.create(url);
+    } catch (IllegalArgumentException e) {
+      throw new IOException("Refusing a non-HTTPS yt-dlp URL");
+    }
+    if (!"https".equalsIgnoreCase(uri.getScheme())) {
+      throw new IOException("Refusing a non-HTTPS yt-dlp URL");
+    }
+    int cap = YtDlpUpdate.BINARY_CAP;
+    if (url.startsWith("https://api.github.com/")) cap = YtDlpUpdate.RELEASE_CAP;
+    else if (url.endsWith("/" + YtDlpUpdate.SUMS)) cap = YtDlpUpdate.SUMS_CAP;
+    HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+    connection.setInstanceFollowRedirects(true);
+    connection.setConnectTimeout(20000);
+    connection.setReadTimeout(60000);
+    connection.setRequestProperty("User-Agent", "still-ytdlp-update");
+    if (url.startsWith("https://api.github.com/")) {
+      connection.setRequestProperty("Accept", "application/vnd.github+json");
+    }
+    try {
+      int status = connection.getResponseCode();
+      if (connection.getURL() == null || !"https".equalsIgnoreCase(connection.getURL().getProtocol())) {
+        throw new IOException("Refusing a yt-dlp download that left HTTPS");
+      }
+      if (status != HttpURLConnection.HTTP_OK) {
+        throw new IOException("yt-dlp download returned HTTP " + status);
+      }
+      try (InputStream input = connection.getInputStream();
+          ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        byte[] buffer = new byte[8192];
+        int count;
+        int total = 0;
+        while ((count = input.read(buffer)) != -1) {
+          total += count;
+          if (total > cap) throw new IOException("yt-dlp download exceeded " + cap + " bytes");
+          output.write(buffer, 0, count);
+        }
+        return output.toByteArray();
+      }
+    } finally {
+      connection.disconnect();
     }
   }
 }

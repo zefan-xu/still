@@ -120,7 +120,7 @@ git checkout v1.2.1
 >
 > There is no FFmpeg or aria2. Video and audio are merged with Android's MediaMuxer.
 >
-> **Extractor updates.** Still never updates yt-dlp by itself. Settings has an "Update" action. It asks first ("Still downloads the latest official yt-dlp release from GitHub"), and only then downloads the official release from GitHub. Without it, the bundled, checksummed copy is used.
+> **Extractor updates.** Still never updates yt-dlp by itself. Settings has an "Update" action. It asks first ("Still downloads the latest official yt-dlp release from GitHub and checks its published checksum before installing it."), and only then downloads the official release from GitHub. The download replaces the installed file only when its SHA-256 matches the release's SHA2-256SUMS and the zipapp's version matches the tag; a mismatch leaves the previous extractor in place. Without an update, the bundled, checksummed copy is used.
 >
 > **Network.** For X, only the post ID goes to the open-source FxTwitter API, and users can point it at their own instance. Other platforms are contacted directly. There are no trackers, analytics or crash reporting.
 >

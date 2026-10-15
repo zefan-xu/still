@@ -92,7 +92,7 @@ jobs:
 
           ## How it was checked
 
-          - [x] \`scripts/ytdlp.py update\` checked the zipapp against the release's \`SHA2-256SUMS\` and confirmed its \`yt_dlp/version.py\` says $VERSION
+          - [x] \`scripts/ytdlp.py update\` verified \`SHA2-256SUMS.sig\` with the pinned yt-dlp key, checked the zipapp against that \`SHA2-256SUMS\`, and confirmed its \`yt_dlp/version.py\` says $VERSION
           - [x] \`scripts/ytdlp.py check\` confirmed \`ExtractorRuntime\` and \`THIRD_PARTY_NOTICES.md\` describe the new binary
           - [ ] **CI passed** on this commit; auto-merge squashes the pull request once it does.$approval
           - [ ] [Live platforms on this branch]($REPO_URL/actions/workflows/live.yml?query=branch%3Adeps%2Fyt-dlp) (not required for merging)
