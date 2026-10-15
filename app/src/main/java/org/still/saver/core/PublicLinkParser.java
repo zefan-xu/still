@@ -41,10 +41,10 @@ public final class PublicLinkParser {
       /* Try the other supported public platforms. */
     }
     if (input == null || input.trim().isEmpty())
-      throw new IOException("Paste a public post link first.");
-    if (input.length() > 8192) throw new IOException("The pasted link is too long.");
+      throw new UserError(ErrorCode.LINK_EMPTY);
+    if (input.length() > 8192) throw new UserError(ErrorCode.LINK_TOO_LONG);
     if (LinkParser.hasForbiddenScheme(input))
-      throw new IOException("Use an HTTPS public post link.");
+      throw new UserError(ErrorCode.LINK_NOT_HTTPS);
     Matcher links = LINKS.matcher(input);
     while (links.find()) {
       String candidate = links.group();
@@ -128,7 +128,7 @@ public final class PublicLinkParser {
             + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
       }
     }
-    throw new IOException("Use an HTTPS public post link from " + Platforms.names("or") + ".");
+    throw new UserError(ErrorCode.LINK_UNSUPPORTED);
   }
 
   /**

@@ -77,15 +77,13 @@ public final class MediaResolver {
     try {
       response = transport.get(apiBase + "/status/" + link.id);
     } catch (IOException e) {
-      throw new IOException(
-          "Could not reach the media service. Check your connection or try again later. "
-              + (e.getMessage() == null ? "" : e.getMessage()),
-          e);
+      throw new UserError(
+          e, ErrorCode.SERVICE_UNREACHABLE, e.getMessage() == null ? "" : e.getMessage());
     }
-    if (response == null) throw new IOException("The media service returned an empty response.");
+    if (response == null) throw new UserError(ErrorCode.SERVICE_EMPTY);
     if (response.body.length() > MAX_BODY_BYTES
         || response.body.getBytes(StandardCharsets.UTF_8).length > MAX_BODY_BYTES) {
-      throw new IOException("The media service response is too large.");
+      throw new UserError(ErrorCode.SERVICE_TOO_LARGE);
     }
     JSONObject root = null;
     try {
@@ -96,13 +94,13 @@ public final class MediaResolver {
     String message = root == null ? "" : root.optString("message", "");
     if (response.statusCode != 200) throw serviceError(response.statusCode, message);
     if (root == null)
-      throw new IOException("The media service returned an unreadable response. Try again later.");
+      throw new UserError(ErrorCode.SERVICE_UNREADABLE);
     int code = root.optInt("code", 200);
     if (code != 200) throw serviceError(code, message);
     JSONObject tweet = root.optJSONObject("tweet");
     if (tweet == null) tweet = root.optJSONObject("status");
     if (tweet == null)
-      throw new IOException("The post is unavailable to the public media service.");
+      throw new UserError(ErrorCode.SERVICE_POST_UNAVAILABLE);
     if ("tombstone".equals(tweet.optString("type"))) {
       throw serviceError(404, tweet.optString("reason", ""));
     }
@@ -133,7 +131,7 @@ public final class MediaResolver {
       }
     }
     if (media.isEmpty()) {
-      throw new IOException("This public post has no downloadable videos, GIFs, or photos.");
+      throw new UserError(ErrorCode.SERVICE_NO_MEDIA);
     }
     String handle = author == null ? "" : author.optString("screen_name", "");
     String name = author == null ? "" : author.optString("name", "");
@@ -302,16 +300,16 @@ public final class MediaResolver {
   private static IOException serviceError(int code, String detail) {
     String lower = detail.toLowerCase(Locale.ROOT);
     if (code == 429)
-      return new IOException("The media service is rate limited. Wait a moment and try again.");
+      return new UserError(ErrorCode.SERVICE_RATE_LIMITED);
     if (code == 401 || code == 403 || lower.contains("private") || lower.contains("protected")) {
-      return new IOException("This post is private or restricted. Only public posts can be saved.");
+      return new UserError(ErrorCode.SERVICE_PRIVATE);
     }
     if (code == 404 || code == 410) {
-      return new IOException("This post could not be found. It may be deleted or unavailable.");
+      return new UserError(ErrorCode.SERVICE_NOT_FOUND);
     }
     if (code >= 500)
-      return new IOException("The media service is temporarily unavailable. Try again later.");
-    return new IOException("The media service could not load this post (status " + code + ").");
+      return new UserError(ErrorCode.SERVICE_DOWN);
+    return new UserError(ErrorCode.SERVICE_STATUS, code);
   }
 
   private static final class Attachment {
@@ -350,7 +348,7 @@ public final class MediaResolver {
     @Override
     public Response get(String url) throws IOException {
       URI current = LinkParser.safeHttpsUri(url);
-      if (current == null) throw new IOException("The media service URL must use HTTPS.");
+      if (current == null) throw new UserError(ErrorCode.SERVICE_NOT_HTTPS);
       for (int redirects = 0; redirects <= 3; redirects++) {
         HttpURLConnection connection =
             (HttpURLConnection) new URL(current.toASCIIString()).openConnection();
@@ -365,21 +363,21 @@ public final class MediaResolver {
           if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
             String location = connection.getHeaderField("Location");
             if (location == null)
-              throw new IOException("The media service sent an invalid redirect.");
+              throw new UserError(ErrorCode.SERVICE_INVALID_REDIRECT);
             URI next;
             try {
               next = current.resolve(location);
             } catch (IllegalArgumentException e) {
-              throw new IOException("The media service sent an invalid redirect.", e);
+              throw new UserError(e, ErrorCode.SERVICE_INVALID_REDIRECT);
             }
             current = LinkParser.safeHttpsUri(next.toString());
             if (current == null)
-              throw new IOException("The media service redirected to an unsafe URL.");
-            if (redirects == 3) throw new IOException("The media service sent too many redirects.");
+              throw new UserError(ErrorCode.SERVICE_UNSAFE_REDIRECT);
+            if (redirects == 3) throw new UserError(ErrorCode.SERVICE_TOO_MANY_REDIRECTS);
             continue;
           }
           if (connection.getContentLength() > MAX_BODY_BYTES) {
-            throw new IOException("The media service response is too large.");
+            throw new UserError(ErrorCode.SERVICE_TOO_LARGE);
           }
           InputStream stream =
               status >= 400 ? connection.getErrorStream() : connection.getInputStream();
@@ -392,7 +390,7 @@ public final class MediaResolver {
             while ((read = input.read(buffer)) != -1) {
               total += read;
               if (total > MAX_BODY_BYTES)
-                throw new IOException("The media service response is too large.");
+                throw new UserError(ErrorCode.SERVICE_TOO_LARGE);
               body.write(buffer, 0, read);
             }
             return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
@@ -401,7 +399,7 @@ public final class MediaResolver {
           connection.disconnect();
         }
       }
-      throw new IOException("The media service sent too many redirects.");
+      throw new UserError(ErrorCode.SERVICE_TOO_MANY_REDIRECTS);
     }
   }
 }

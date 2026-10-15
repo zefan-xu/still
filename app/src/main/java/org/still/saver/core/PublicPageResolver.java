@@ -116,13 +116,12 @@ public final class PublicPageResolver {
     } catch (TimeoutException e) {
       extraction.cancel(true);
       YoutubeDL.INSTANCE.destroyProcessById(processId);
-      throw new IOException(
-          "The public media extractor timed out. Check your connection and try again.", e);
+      throw new UserError(e, ErrorCode.EXTRACTOR_TIMEOUT);
     } catch (InterruptedException e) {
       extraction.cancel(true);
       YoutubeDL.INSTANCE.destroyProcessById(processId);
       Thread.currentThread().interrupt();
-      throw new IOException("Media extraction was cancelled.", e);
+      throw new UserError(e, ErrorCode.CANCELLED);
     } catch (ExecutionException e) {
       throw extractionError(e.getCause());
     } finally {
@@ -136,13 +135,10 @@ public final class PublicPageResolver {
             ? ""
             : cause.getMessage().toLowerCase(Locale.ROOT);
     if (message.contains("429") || message.contains("rate limit")) {
-      return new IOException("This platform is rate limited. Wait a moment and try again.", cause);
+      return new UserError(cause, ErrorCode.EXTRACTOR_RATE_LIMITED);
     }
     if (message.contains("not a bot")) {
-      return new IOException(
-          "YouTube is asking this network to prove it is not a bot. Try again later or on"
-              + " another connection.",
-          cause);
+      return new UserError(cause, ErrorCode.YOUTUBE_BOT_CHECK);
     }
     if (message.contains("login")
         || message.contains("log in")
@@ -150,20 +146,15 @@ public final class PublicPageResolver {
         || message.contains("cookie")
         || message.contains("private")
         || message.contains("403")) {
-      return new IOException(
-          "This post requires login or is restricted. Only publicly available media is supported.",
-          cause);
+      return new UserError(cause, ErrorCode.EXTRACTOR_LOGIN);
     }
     if (message.contains("unsupported url"))
-      return new IOException("The bundled extractor does not support this public link yet.", cause);
+      return new UserError(cause, ErrorCode.EXTRACTOR_UNSUPPORTED);
     if (cause instanceof LinkageError
         || message.contains("initialize")
         || message.contains("permission denied")) {
-      return new IOException("This device could not start the bundled media extractor.", cause);
+      return new UserError(cause, ErrorCode.EXTRACTOR_START_FAILED);
     }
-    return new IOException(
-        "Could not load this public post. Check your connection; the post may be deleted or"
-            + " unavailable.",
-        cause);
+    return new UserError(cause, ErrorCode.EXTRACTOR_FAILED);
   }
 }

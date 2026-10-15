@@ -21,6 +21,13 @@ sourceSets {
             exclude 'org/still/saver/core/PublicPageResolver.java'
         }
     }
+    test {
+        resources {
+            // Tests word core error codes in the app's English text.
+            srcDir '../app/src/main/res/values'
+            include 'strings.xml'
+        }
+    }
 }
 
 dependencies {

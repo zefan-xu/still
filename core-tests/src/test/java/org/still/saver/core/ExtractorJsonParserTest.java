@@ -576,7 +576,7 @@ public class ExtractorJsonParserTest {
       ExtractorJsonParser.parse(json, SOURCE, device);
       fail("Expected error containing: " + expected);
     } catch (IOException error) {
-      assertTrue(error.getMessage(), error.getMessage().contains(expected));
+      assertTrue(English.message(error), English.message(error).contains(expected));
     }
   }
 

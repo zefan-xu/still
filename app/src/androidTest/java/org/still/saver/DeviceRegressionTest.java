@@ -8,6 +8,7 @@ import android.app.Instrumentation;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -22,6 +23,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONArray;
@@ -29,8 +31,11 @@ import org.json.JSONObject;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.still.saver.core.ErrorCode;
 import org.still.saver.core.Media;
+import org.still.saver.core.Platforms;
 import org.still.saver.core.Post;
+import org.still.saver.core.UserError;
 import org.still.saver.core.Variant;
 
 /** Offline regressions for Android-owned state and activity recreation. */
@@ -38,6 +43,52 @@ import org.still.saver.core.Variant;
 public final class DeviceRegressionTest {
   private Context context() {
     return InstrumentationRegistry.getInstrumentation().getTargetContext();
+  }
+
+  @Test
+  public void everyCoreCodeHasItsNamedString() {
+    Resources res = context().getResources();
+    for (ErrorCode code : ErrorCode.values())
+      assertEquals(
+          "error_" + code.name().toLowerCase(Locale.ROOT),
+          res.getResourceEntryName(CoreText.message(code)));
+    for (Platforms.Kind kind : Platforms.Kind.values())
+      assertEquals(
+          "home_match_" + kind.name().toLowerCase(Locale.ROOT),
+          res.getResourceEntryName(CoreText.kind(kind)));
+    for (Platforms.Platform platform : Platforms.ALL)
+      assertEquals(
+          "links_" + platform.name.toLowerCase(Locale.ROOT) + "_summary",
+          res.getResourceEntryName(CoreText.summary(platform)));
+  }
+
+  @Test
+  public void liveCheckSortsCoreCodesIntoBlockedAndBroken() {
+    String botCheck = "ERROR: [youtube] LeUcjqqhNxM: Sign in to confirm you’re not a bot.";
+    Throwable[] blocked = {
+      new UserError(ErrorCode.RATE_LIMITED, "Instagram"),
+      new UserError(ErrorCode.SERVICE_RATE_LIMITED),
+      new UserError(new IOException("HTTP Error 429"), ErrorCode.EXTRACTOR_RATE_LIMITED),
+      new UserError(new IOException(botCheck), ErrorCode.YOUTUBE_BOT_CHECK),
+      new UserError(ErrorCode.INSTAGRAM_LIMITED),
+      new UserError(ErrorCode.INSTAGRAM_LOGIN_WALL),
+      new AssertionError("Lookup failed", new UserError(ErrorCode.YOUTUBE_BOT_CHECK)),
+      new IOException("Download failed", new IOException("HTTP Error 429: Too Many Requests")),
+    };
+    for (Throwable failure : blocked)
+      assertEquals(String.valueOf(failure), LiveFailure.BLOCKED, LiveFailure.category(failure));
+    Throwable[] broken = {
+      new UserError(ErrorCode.LOGIN_REQUIRED, "Instagram"),
+      new UserError(ErrorCode.STATUS, "Instagram", 500),
+      new UserError(ErrorCode.STATUS, "Instagram", 403),
+      new UserError(new IOException("HTTP Error 403: Forbidden"), ErrorCode.EXTRACTOR_LOGIN),
+      new UserError(ErrorCode.SERVICE_PRIVATE),
+      new UserError(ErrorCode.INSTAGRAM_MISSING),
+      new UserError(ErrorCode.INSTAGRAM_LOGIN_REQUIRED),
+      new AssertionError("Expected video"),
+    };
+    for (Throwable failure : broken)
+      assertEquals(String.valueOf(failure), LiveFailure.BROKEN, LiveFailure.category(failure));
   }
 
   @Test

@@ -106,7 +106,7 @@ public class ThreadsEmbedResolverTest {
             .resolve(LINK);
         fail("Accepted status " + status);
       } catch (IOException expected) {
-        assertTrue(expected.getMessage().contains("Threads"));
+        assertTrue(English.message(expected).contains("Threads"));
       }
     }
     char[] body = new char[PublicEmbedTransport.MAX_BODY_BYTES / 2];
@@ -116,7 +116,7 @@ public class ThreadsEmbedResolverTest {
           .resolve(LINK);
       fail("Accepted oversized UTF-8 body");
     } catch (IOException expected) {
-      assertTrue(expected.getMessage().contains("too large"));
+      assertTrue(English.message(expected).contains("too large"));
     }
   }
 
@@ -214,7 +214,7 @@ public class ThreadsEmbedResolverTest {
       resolve(html);
       fail("Expected " + fragment);
     } catch (IOException expected) {
-      assertTrue(expected.getMessage(), expected.getMessage().contains(fragment));
+      assertTrue(English.message(expected), English.message(expected).contains(fragment));
     }
   }
 }

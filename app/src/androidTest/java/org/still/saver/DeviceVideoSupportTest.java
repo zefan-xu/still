@@ -7,13 +7,14 @@ import android.os.Build;
 import android.util.Log;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
-import java.io.IOException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.still.saver.core.ErrorCode;
 import org.still.saver.core.ExtractorJsonParser;
 import org.still.saver.core.Media;
+import org.still.saver.core.UserError;
 import org.still.saver.core.Variant;
 import org.still.saver.core.VideoSupport;
 
@@ -100,8 +101,8 @@ public final class DeviceVideoSupportTest {
     try {
       ExtractorJsonParser.parse(root.toString(), WATCH, device);
       fail("Offered separate tracks that this Android version cannot merge");
-    } catch (IOException expected) {
-      assertTrue(expected.getMessage(), expected.getMessage().contains("this phone can save"));
+    } catch (UserError expected) {
+      assertEquals(ErrorCode.YOUTUBE_NO_FORMAT, expected.code);
     }
   }
 

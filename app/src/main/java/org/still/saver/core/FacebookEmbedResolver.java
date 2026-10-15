@@ -20,7 +20,7 @@ public final class FacebookEmbedResolver {
   public Post resolve(String input) throws IOException {
     String source = PublicLinkParser.parse(input);
     if (FacebookEmbedParser.videoId(source) == null)
-      throw new IOException("This Facebook embed needs a video post with a numeric ID.");
+      throw new UserError(ErrorCode.FACEBOOK_NEEDS_ID);
     String embed =
         "https://www.facebook.com/plugins/video.php?href="
             + URLEncoder.encode(source, "UTF-8")

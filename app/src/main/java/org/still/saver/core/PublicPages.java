@@ -59,7 +59,7 @@ public final class PublicPages {
             String location = connection.getHeaderField("Location");
             if (status != 200) return new Reply(status, "", location);
             if (connection.getContentLengthLong() > MAX_BODY_BYTES)
-              throw new IOException("The public page is too large.");
+              throw new UserError(ErrorCode.PAGE_TOO_LARGE);
             try (InputStream input = connection.getInputStream();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
               byte[] buffer = new byte[16384];
@@ -67,7 +67,7 @@ public final class PublicPages {
               while ((read = input.read(buffer)) != -1) {
                 checkCancelled();
                 total += read;
-                if (total > MAX_BODY_BYTES) throw new IOException("The public page is too large.");
+                if (total > MAX_BODY_BYTES) throw new UserError(ErrorCode.PAGE_TOO_LARGE);
                 out.write(buffer, 0, read);
               }
               return new Reply(status, new String(out.toByteArray(), StandardCharsets.UTF_8), null);
@@ -104,18 +104,17 @@ public final class PublicPages {
 
   static void checkStatus(Reply reply, String platform) throws IOException {
     if (reply.status == 429)
-      throw new IOException(platform + " is rate limited. Wait a moment and try again.");
+      throw new UserError(ErrorCode.RATE_LIMITED, platform);
     if (reply.status == 401 || reply.status == 403)
-      throw new IOException("This " + platform + " post requires login or is restricted.");
+      throw new UserError(ErrorCode.LOGIN_REQUIRED, platform);
     if (reply.status == 404 || reply.status == 410)
-      throw new IOException("This " + platform + " post is deleted or unavailable.");
+      throw new UserError(ErrorCode.UNAVAILABLE, platform);
     if (reply.status != 200)
-      throw new IOException(
-          "Could not load this " + platform + " post (status " + reply.status + ").");
+      throw new UserError(ErrorCode.STATUS, platform, reply.status);
   }
 
   static void checkCancelled() throws IOException {
     if (Thread.currentThread().isInterrupted())
-      throw new IOException("Media extraction was cancelled.");
+      throw new UserError(ErrorCode.CANCELLED);
   }
 }

@@ -146,10 +146,7 @@ final class SaveSession {
                     () -> {
                       if (ticket != generation || disposed) return;
                       phase = Phase.ERROR;
-                      message =
-                          e.getMessage() == null
-                              ? app.getString(R.string.save_lookup_failed)
-                              : e.getMessage();
+                      message = CoreText.message(app, e, R.string.save_lookup_failed);
                       changed();
                     });
               }

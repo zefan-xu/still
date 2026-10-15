@@ -131,7 +131,7 @@ public class FacebookEmbedParserTest {
       FacebookEmbedParser.parse(unavailable(), SOURCE);
       fail("Expected the explicit public-unavailable diagnosis");
     } catch (FacebookEmbedParser.UnavailableException expected) {
-      assertTrue(expected.getMessage().contains("public viewers"));
+      assertTrue(English.message(expected).contains("public viewers"));
     }
     assertOrdinaryError("<title>Facebook</title>", SOURCE);
     assertOrdinaryError("<p>Help for a Video Unavailable message</p>", SOURCE);

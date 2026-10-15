@@ -42,9 +42,9 @@ public final class FacebookEmbedParser {
   private FacebookEmbedParser() {}
 
   /** An explicit embed state, rather than an extraction or transport failure. */
-  public static final class UnavailableException extends IOException {
+  public static final class UnavailableException extends UserError {
     public UnavailableException() {
-      super("Facebook says this video is unavailable to public viewers.");
+      super(ErrorCode.FACEBOOK_UNAVAILABLE);
     }
   }
 
@@ -81,11 +81,11 @@ public final class FacebookEmbedParser {
 
   public static Post parse(String html, String sourceUrl) throws IOException {
     String target = videoId(sourceUrl);
-    if (target == null) throw new IOException("The Facebook link has no known numerical video ID.");
+    if (target == null) throw new UserError(ErrorCode.FACEBOOK_NO_ID);
     if (html == null
         || html.length() > MAX_BYTES
         || html.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
-      throw new IOException("The Facebook embed response is empty or too large.");
+      throw new UserError(ErrorCode.FACEBOOK_EMBED_TOO_LARGE);
     }
     Document document = Jsoup.parse(html, sourceUrl);
     Scan scan = new Scan(target);
@@ -130,7 +130,7 @@ public final class FacebookEmbedParser {
                   scan.durationMs)));
     }
     if (!scan.limited && explicitlyUnavailable(document)) throw new UnavailableException();
-    throw new IOException("The public Facebook embed has no playable file for this video.");
+    throw new UserError(ErrorCode.FACEBOOK_NO_FILE);
   }
 
   private static boolean explicitlyUnavailable(Document document) {

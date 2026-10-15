@@ -92,8 +92,8 @@ public class LinkParsingPropertyTest {
     try {
       assertCanonical(PublicLinkParser.parse(text));
     } catch (IOException rejected) {
-      assertNotNull(rejected.getMessage());
-      assertFalse(rejected.getMessage().isEmpty());
+      assertNotNull(English.message(rejected));
+      assertFalse(English.message(rejected).isEmpty());
     }
   }
 
