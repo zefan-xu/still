@@ -14,8 +14,7 @@ ci_summary = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ci_summary)
 
 BOT_CHECK = {"passed": False, "category": "blocked",
-             "error": "java.io.IOException: YouTube is asking this network to prove it is not a bot. Try again"
-                      " later or on another connection.",
+             "error": "org.still.saver.core.UserError: YOUTUBE_BOT_CHECK",
              "cause": "com.yausername.youtubedl_android.YoutubeDLException: ERROR: [youtube] LeUcjqqhNxM: Sign in"
                       " to confirm you’re not a bot."}
 
