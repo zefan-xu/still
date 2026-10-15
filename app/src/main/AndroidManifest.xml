@@ -9,13 +9,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
-        android:usesCleartextTraffic="false" android:supportsRtl="true" android:extractNativeLibs="true">
+        android:usesCleartextTraffic="false" android:supportsRtl="true">
         <activity android:name=".PlayerActivity" android:exported="false" android:theme="@style/Still.Viewer" />
         <activity android:name=".SettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".OnboardingActivity" android:exported="false" />
         <service android:name=".gif.GifService" android:exported="false" android:foregroundServiceType="dataSync|mediaProcessing" />
         <service android:name=".CookieDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
-        <receiver android:name=".DownloadReceiver" android:exported="true">
+        <!-- Not exported. DOWNLOAD_COMPLETE is a protected system broadcast, so the system can
+             still deliver it and other apps cannot. -->
+        <receiver android:name=".DownloadReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE" /></intent-filter>
         </receiver>
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"

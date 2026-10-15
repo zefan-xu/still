@@ -178,6 +178,20 @@ public final class DownloadStore {
     }
   }
 
+  /**
+   * True when {@code id} is a DownloadManager id already stored in the queue. Reads only the saved
+   * JSON, so an unrelated completion does not query DownloadManager or repair files.
+   */
+  public static synchronized boolean owns(Context c, long id) {
+    if (id <= 0) return false;
+    JSONArray saved = read(c);
+    for (int i = 0; i < saved.length(); i++) {
+      JSONObject row = saved.optJSONObject(i);
+      if (row != null && row.optLong("id", -1) == id) return true;
+    }
+    return false;
+  }
+
   public static synchronized List<Entry> list(Context c) {
     JSONArray a = read(c);
     List<Entry> out = new ArrayList<>();

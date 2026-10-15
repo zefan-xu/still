@@ -20,6 +20,8 @@ jobs:
     name: Real downloads from every platform
     runs-on: ubuntu-26.04
     timeout-minutes: 90
+    env:
+      ORG_GRADLE_PROJECT_stillMinifyDebug: 'true'
     outputs:
       verdict: ${{ steps.summary.outputs.verdict }}
       blocked: ${{ steps.summary.outputs.blocked }}
