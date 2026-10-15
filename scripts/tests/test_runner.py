@@ -328,6 +328,66 @@ class LiveOutcomeTest(unittest.TestCase):
         self.assertEqual(run.report["suites"][-1]["evidence"], ["live-youtube.json"])
         self.assertEqual(list(run.report["live"]["blocked"]), ["youtube"])
 
+    @patch.object(runner.subprocess, "run")
+    def test_collect_live_drops_cat_errors_that_exit_zero(self, adb):
+        """API 35 run-as exits 0 and prints cat's message when a smallest-quality report was never written."""
+        missing = b"cat: files/live-bluesky-photo.json: No such file or directory\n"
+        attempts = runner.json.dumps([{"passed": True, "test": "LivePlatformDownloadTest#x"}]).encode()
+
+        def respond(cmd, **kw):
+            if cmd[-1] == "files/live-x.json":
+                return SimpleNamespace(returncode=0, stdout=attempts)
+            return SimpleNamespace(returncode=0, stdout=missing)
+
+        adb.side_effect = respond
+        with patch.object(runner, "ROOT", self.directory):
+            run = runner.Run(SimpleNamespace(mode="live"))
+        run.adb, run.serial = "adb", "emulator-5554"
+        run.report["suites"].append({"name": "live-smallest", "errors": [], "tests": [
+            {"class": "org.still.saver.LivePlatformDownloadTest", "test": "x", "status": 0, "stack": ""}]})
+        run.collect_live("live-smallest")
+        self.assertEqual(run.report["suites"][-1]["evidence"], ["live-x.json"])
+        self.assertEqual(run.report["live"]["passed"], ["x"])
+        self.assertEqual(run.report["live"]["broken"], {})
+        self.assertFalse((run.directory / "live-smallest" / "live-bluesky-photo.json").exists())
+
+    def test_live_report_requires_a_json_array(self):
+        self.assertTrue(runner.is_live_report(b"[]\n"))
+        self.assertTrue(runner.is_live_report(b'[{"passed": false}]'))
+        self.assertFalse(runner.is_live_report(b"cat: files/live-x.json: No such file or directory\n"))
+        self.assertFalse(runner.is_live_report(b"[{"))
+        self.assertFalse(runner.is_live_report(b'{"passed": true}'))
+        self.assertFalse(runner.is_live_report(b""))
+
+
+class FinishedStatusTest(unittest.TestCase):
+    def test_blocked_only_live_run_exits_zero(self):
+        report = {"mode": "live", "passed": False, "suites": [
+            {"name": "runner-tests", "passed": True},
+            {"name": "build", "passed": True},
+            {"name": "live-smallest", "passed": False, "evidence": ["live-youtube.json"]},
+        ], "live": {"passed": ["x"], "blocked": {"youtube": "not a bot"}, "broken": {}}}
+        self.assertEqual(runner.finished_status(report), 0)
+        self.assertEqual(ci_summary.verdict(report), "blocked")
+
+    def test_broken_runner_and_non_live_failures_exit_one(self):
+        broken = {"mode": "live", "passed": False, "suites": [
+            {"name": "build", "passed": True},
+            {"name": "live-smallest", "passed": False, "evidence": []},
+        ], "live": {"passed": [], "blocked": {"youtube": "bot"}, "broken": {"instagram": "gone"}}}
+        device = {"mode": "device", "passed": False, "suites": [{"name": "device-offline", "passed": False}]}
+        runner_error = {"mode": "all", "passed": False, "suites": [
+            {"name": "build", "passed": False},
+            {"name": "live-highest", "passed": False, "evidence": []},
+        ], "live": {"passed": [], "blocked": {"youtube": "bot"}, "broken": {}}}
+        crashed = {"mode": "live", "passed": False, "error": "timed out", "suites": [],
+                   "live": {"passed": [], "blocked": {"youtube": "bot"}, "broken": {}}}
+        self.assertEqual(runner.finished_status(broken), 1)
+        self.assertEqual(runner.finished_status(device), 1)
+        self.assertEqual(runner.finished_status(runner_error), 1)
+        self.assertEqual(runner.finished_status(crashed), 1)
+        self.assertEqual(runner.finished_status({"mode": "local", "passed": True, "suites": []}), 0)
+
 
 class LiveVerdictTest(unittest.TestCase):
     def report(self, blocked=(), broken=(), passed=False, **extra):
