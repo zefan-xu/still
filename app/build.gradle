@@ -46,9 +46,11 @@ android {
         abortOnError true
         warningsAsErrors true
         checkReleaseBuilds true
-        // Dependabot proposes upgrades; the app deliberately uses platform widgets and no translations.
+        // Dependabot proposes upgrades; the app deliberately uses platform widgets.
         disable 'GradleDependency', 'NewerVersionAvailable', 'AndroidGradlePluginVersion', 'OldTargetApi',
-                'UseSwitchCompatOrMaterialCode', 'UseSwitchCompatOrMaterialXml', 'SetTextI18n'
+                'UseSwitchCompatOrMaterialCode', 'UseSwitchCompatOrMaterialXml'
+        // UI text lives in res/values/strings.xml so it can be translated; literals fail the build.
+        error 'SetTextI18n', 'HardcodedText'
     }
     packagingOptions.jniLibs.useLegacyPackaging = true
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/licenseAssets').get().asFile
