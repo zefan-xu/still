@@ -17,6 +17,9 @@ TAG = re.compile(r"^v(\d{1,3})\.(\d{1,2})\.(\d{1,2})$")
 SHIPPED = ("app/src/main/", "app/build.gradle", "build.gradle", "settings.gradle", "gradle.properties",
            "gradle/", "LICENSE", "THIRD_PARTY_NOTICES.md", "licenses/")
 LICENSE_ASSETS = ("assets/licenses/LICENSE", "assets/licenses/THIRD_PARTY_NOTICES.md")
+CHANGELOGS = ROOT / "fastlane/metadata/android/en-US/changelogs"
+# F-Droid and IzzyOnDroid cut a version's changelog at 500 bytes.
+CHANGELOG_LIMIT = 500
 
 
 def parse_version(text):
@@ -80,9 +83,15 @@ def git(*arguments):
     return subprocess.check_output(["git", *arguments], cwd=ROOT, text=True)
 
 
+def released_tags():
+    """(version, tag) for every release tag, oldest first."""
+    tags = git("tag", "--list", "v*").split()
+    return sorted((tuple(int(g) for g in m.groups()), t) for m, t in ((TAG.match(t), t) for t in tags) if m)
+
+
 def command_plan(args):
     tags = git("tag", "--list", "v*").split()
-    released = sorted((tuple(int(g) for g in m.groups()), t) for m, t in ((TAG.match(t), t) for t in tags) if m)
+    released = released_tags()
     changed = git("diff", "--name-only", released[-1][1], "HEAD").split() if released else []
     result = plan(tags, base_version((ROOT / "app/build.gradle").read_text()), changed, args.bump)
     print(json.dumps(result, indent=2))
@@ -268,6 +277,68 @@ def command_notes(args):
     return 0
 
 
+def changelog(commits, version, repository):
+    """The store changelog from a release's (subject, changed paths) commits, oldest first; None for the first release.
+
+    Lists the pull requests that changed the APK, like the "In the app" release notes, within CHANGELOG_LIMIT."""
+    if commits is None:
+        lines = ["- First published release"]
+    else:
+        lines, dependencies = [], False
+        for subject, files in commits:
+            if not any(f.startswith(SHIPPED) for f in files):
+                continue
+            if subject.startswith("Build(deps"):
+                dependencies = True
+                continue
+            line = "- " + re.sub(r" \(#\d+\)$", "", subject)
+            if line not in lines:
+                lines.append(line)
+        if dependencies:
+            lines.append("- Updated dependencies")
+        lines = lines or ["- No changes in the app"]
+    text = "\n".join(lines) + "\n"
+    if len(text.encode()) <= CHANGELOG_LIMIT:
+        return text
+    more = f"More: https://github.com/{repository}/releases/tag/v{version}"
+    budget = CHANGELOG_LIMIT - len(more.encode()) - 2
+    kept = []
+    for line in lines:
+        if len("\n".join(kept + [line]).encode()) > budget:
+            break
+        kept.append(line)
+    if not kept:
+        kept = [lines[0].encode()[:budget - 3].decode(errors="ignore") + "..."]
+    return "\n".join(kept + [more]) + "\n"
+
+
+def commits_between(start, end):
+    """(subject, changed paths) for each commit after start up to end, oldest first."""
+    log = git("log", "--reverse", "--format=%x00%s", "--name-only", f"{start}..{end}")
+    commits = []
+    for chunk in log.split("\0")[1:]:
+        subject, *files = chunk.split("\n")
+        commits.append((subject, [f for f in files if f]))
+    return commits
+
+
+def command_changelog(args):
+    released = released_tags()
+    if args.version:
+        commits = commits_between(released[-1][1], "HEAD") if released else None
+        print(changelog(commits, format_version(parse_version(args.version)), args.repository), end="")
+        return 0
+    for index, (version, tag) in enumerate(released):
+        path = CHANGELOGS / f"{version_code(version)}.txt"
+        if path.exists():
+            continue
+        commits = commits_between(released[index - 1][1], tag) if index else None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(changelog(commits, format_version(version), args.repository))
+        print(f"Wrote {path.relative_to(ROOT)}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -284,8 +355,13 @@ def main():
     notes_parser.add_argument("apk")
     notes_parser.add_argument("--version", required=True)
     notes_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", "zefan-xu/still"))
+    changelog_parser = commands.add_parser(
+        "changelog", help="Write missing store changelogs for released tags, or print one for an unreleased --version")
+    changelog_parser.add_argument("--version", help="Print the changelog for this version from the latest tag to HEAD")
+    changelog_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", "zefan-xu/still"))
     args = parser.parse_args()
-    commands_by_name = {"plan": command_plan, "verify": command_verify, "smoke": command_smoke, "notes": command_notes}
+    commands_by_name = {"plan": command_plan, "verify": command_verify, "smoke": command_smoke, "notes": command_notes,
+                        "changelog": command_changelog}
     return commands_by_name[args.command](args)
 
 

@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import argparse
+import contextlib
 import importlib.util
+import io
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location("still_release", Path(__file__).parents[1] / "release.py")
 release = importlib.util.module_from_spec(spec)
@@ -114,6 +120,106 @@ class NotesTest(unittest.TestCase):
         self.assertIn("14:0B:DC:20", text)
         self.assertIn("https://github.com/zefan-xu/still/tree/v1.2.3", text)
         self.assertIn("THIRD_PARTY_NOTICES.md", text)
+
+
+class ChangelogTest(unittest.TestCase):
+    def test_lists_app_pull_requests_oldest_first_without_numbers(self):
+        commits = [("Add a share sheet (#3)", APP), ("Fix the viewer (#4)", ["app/src/main/res/layout/viewer.xml"])]
+        self.assertEqual(release.changelog(commits, "1.2.3", "zefan-xu/still"),
+                         "- Add a share sheet\n- Fix the viewer\n")
+
+    def test_docs_ci_and_test_changes_are_left_out(self):
+        commits = [("Update the README (#5)", ["README.md"]), ("Run CI on Ubuntu 26 (#6)", [".github/workflows/ci.yml"]),
+                   ("Fix the viewer (#7)", APP)]
+        self.assertEqual(release.changelog(commits, "1.2.3", "zefan-xu/still"), "- Fix the viewer\n")
+
+    def test_dependency_updates_share_one_line_at_the_end(self):
+        commits = [("Build(deps): bump org.json:json from 1 to 2 (#8)", ["app/build.gradle"]),
+                   ("Fix the viewer (#9)", APP),
+                   ("Build(deps): bump gradle-wrapper from 8 to 9 (#10)", ["gradle/wrapper/gradle-wrapper.properties"]),
+                   ("Build(deps): bump actions/checkout from 6 to 7 (#11)", [".github/workflows/ci.yml"])]
+        self.assertEqual(release.changelog(commits, "1.2.3", "zefan-xu/still"),
+                         "- Fix the viewer\n- Updated dependencies\n")
+
+    def test_first_and_empty_releases_still_say_something(self):
+        self.assertEqual(release.changelog(None, "1.1.0", "zefan-xu/still"), "- First published release\n")
+        self.assertEqual(release.changelog([("Update the README", ["README.md"])], "1.1.1", "zefan-xu/still"),
+                         "- No changes in the app\n")
+
+    def test_long_changelogs_fit_the_store_limit_and_link_the_full_notes(self):
+        commits = [(f"Change number {n} to the app, described at some length (#{n})", APP) for n in range(30)]
+        text = release.changelog(commits, "1.2.3", "zefan-xu/still")
+        self.assertLessEqual(len(text.encode()), release.CHANGELOG_LIMIT)
+        self.assertTrue(text.startswith("- Change number 0 "))
+        self.assertTrue(text.endswith("More: https://github.com/zefan-xu/still/releases/tag/v1.2.3\n"))
+        title = release.changelog([("x" * 900, APP)], "1.2.3", "zefan-xu/still")
+        self.assertLessEqual(len(title.encode()), release.CHANGELOG_LIMIT)
+        self.assertIn("...\nMore:", title)
+
+
+class ChangelogCommandTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.enterContext(mock.patch.object(release, "ROOT", self.root))
+        self.changelogs = self.root / "fastlane/metadata/android/en-US/changelogs"
+        self.enterContext(mock.patch.object(release, "CHANGELOGS", self.changelogs))
+        self.git("init", "-q")
+
+    def git(self, *arguments):
+        subprocess.run(["git", "-c", "user.name=Still", "-c", "user.email=still@example.com",
+                        "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", "-c", "core.hooksPath=/dev/null",
+                        *arguments],
+                       cwd=self.root, check=True, capture_output=True)
+
+    def commit(self, subject, path):
+        (self.root / path).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.root / path, "a") as file:
+            file.write(subject + "\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", subject)
+
+    def run_command(self, version=None):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            release.command_changelog(argparse.Namespace(version=version, repository="zefan-xu/still"))
+        return output.getvalue()
+
+    def test_writes_each_missing_release_by_version_code_and_keeps_existing_ones(self):
+        self.commit("Still 1.1.0", APP[0])
+        self.git("tag", "v1.1.0")
+        self.commit("Add a share sheet (#3)", APP[0])
+        self.commit("Update the README (#4)", "README.md")
+        self.git("tag", "v1.1.1")
+        self.changelogs.mkdir(parents=True)
+        (self.changelogs / "10100.txt").write_text("Written by hand\n")
+        self.run_command()
+        self.assertEqual((self.changelogs / "10100.txt").read_text(), "Written by hand\n")
+        self.assertEqual((self.changelogs / "10101.txt").read_text(), "- Add a share sheet\n")
+
+    def test_prints_the_unreleased_version_from_the_latest_tag(self):
+        self.commit("Still 1.1.0", APP[0])
+        self.git("tag", "v1.1.0")
+        self.commit("Fix the viewer (#5)", APP[0])
+        self.assertEqual(self.run_command("1.1.1"), "- Fix the viewer\n")
+        self.assertFalse(self.changelogs.exists())
+
+
+class StoreListingTest(unittest.TestCase):
+    STORE = Path(__file__).parents[2] / "fastlane/metadata/android/en-US"
+
+    def test_texts_fit_the_store_limits(self):
+        for name, limit in [("title.txt", 30), ("short_description.txt", 80), ("full_description.txt", 4000)]:
+            with self.subTest(name=name):
+                text = (self.STORE / name).read_text().strip()
+                self.assertTrue(0 < len(text) <= limit, f"{name} has {len(text)} characters; the limit is {limit}")
+
+    def test_every_release_changelog_fits(self):
+        changelogs = list((self.STORE / "changelogs").glob("*.txt"))
+        self.assertTrue(changelogs)
+        for path in changelogs:
+            with self.subTest(path=path.name):
+                self.assertTrue(path.stem.isdigit())
+                self.assertLessEqual(len(path.read_bytes()), release.CHANGELOG_LIMIT)
 
 
 class SmokeTest(unittest.TestCase):

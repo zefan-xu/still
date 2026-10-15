@@ -62,6 +62,12 @@ Still reads posts the way a logged-out browser would, directly from your phone. 
 
 Download **Still-x.y.z.apk** from the [latest release](https://github.com/zefan-xu/still/releases/latest) on an Android 7.0 or newer phone, open it, and allow your browser or file manager to install apps when Android asks. Each release installs over the last one and keeps your library. If you installed a build you made yourself, or one from before the first release, uninstall it once first; it is signed with a different key.
 
+### Get updates with Obtainium
+
+[Obtainium](https://github.com/ImranR98/Obtainium) installs apps from their GitHub releases and checks for new ones. On your phone, [add Still to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/zefan-xu/still), or add `https://github.com/zefan-xu/still` in Obtainium by hand. Each release then shows up as an update.
+
+Obtainium installs the same signed APK as the release page. After the first install, you can check it with [AppVerifier](https://github.com/soupslurpr/AppVerifier): the package is `org.still.saver` and the signing certificate SHA-256 is `14:0B:DC:20:9B:58:30:C1:9C:C9:19:9D:94:FA:05:EE:93:85:3D:47:0B:8E:1A:04:FC:96:D0:A1:1E:2A:8B:B0`. Android refuses any later update signed with a different key.
+
 <details>
 <summary>Verify a download</summary>
 
@@ -96,7 +102,7 @@ Every change reaches `main` through a pull request that must pass one required c
 
 ## Releases
 
-A new version ships automatically every Monday at 15:00 UTC when app code on `main` has changed since the last release. The release job reruns the full CI suite on that exact commit, builds and signs the APK, verifies and smoke-tests it, then tags `vX.Y.Z` and publishes notes grouped by pull request label. Versions come from the tag: weekly releases bump the patch, and raising `baseVersion` in [`app/build.gradle`](app/build.gradle) starts a minor or major release. A maintainer can also run the **Release** workflow by hand.
+A new version ships automatically every Monday at 15:00 UTC when app code on `main` has changed since the last release. The release job reruns the full CI suite on that exact commit, builds and signs the APK, verifies and smoke-tests it, then tags `vX.Y.Z` and publishes notes grouped by pull request label. Versions come from the tag: weekly releases bump the patch, and raising `baseVersion` in [`app/build.gradle`](app/build.gradle) starts a minor or major release. A maintainer can also run the **Release** workflow by hand. [docs/distribution.md](docs/distribution.md) covers the F-Droid and IzzyOnDroid listing in `fastlane/` and whether builds are reproducible.
 
 <details>
 <summary>Maintainers: signing secrets</summary>

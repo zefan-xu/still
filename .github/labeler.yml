@@ -9,4 +9,4 @@ ci:
       - any-glob-to-any-file: ['.github/**', 'scripts/release.py', 'scripts/ci_summary.py', 'scripts/ytdlp.py', 'release/**']
 docs:
   - changed-files:
-      - any-glob-to-any-file: ['*.md', 'docs/**']
+      - any-glob-to-any-file: ['*.md', 'docs/**', 'fastlane/**']
