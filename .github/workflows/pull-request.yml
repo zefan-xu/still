@@ -17,6 +17,8 @@ jobs:
         with:
           sync-labels: true
 
+  # yt-dlp update pull requests enable auto-merge in ytdlp.yml: when it opens them with GITHUB_TOKEN,
+  # pull_request_target never runs this workflow for them.
   dependabot:
     name: Auto-merge safe dependency updates
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
