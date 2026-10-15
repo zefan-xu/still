@@ -142,7 +142,7 @@ public final class Platforms {
   private static Kind kind(Platform platform, String host, String path) {
     if (platform == X) return host.endsWith("twimg.com") ? Kind.MEDIA_LINK : Kind.POST;
     if (platform == INSTAGRAM)
-      return path.matches(".*/reels?/.*")
+      return path.contains("/reel/") || path.contains("/reels/")
           ? Kind.REEL
           : path.contains("/tv/") ? Kind.VIDEO : Kind.POST;
     if (platform == TIKTOK)
