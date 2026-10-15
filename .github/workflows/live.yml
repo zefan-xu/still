@@ -42,6 +42,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # scripts/test.py exits 0 when every failed platform is blocked, and 1 when one is broken.
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -65,7 +66,8 @@ jobs:
   report:
     name: Track broken and blocked platforms in issues
     needs: live
-    if: always() && github.event_name == 'schedule'
+    # Manual runs write the same summary. Only the weekly schedule opens or closes issues.
+    if: always()
     runs-on: ubuntu-26.04
     permissions:
       actions: read
@@ -74,6 +76,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      EVENT: ${{ github.event_name }}
       RESULT: ${{ needs.live.result }}
       LIVE_VERDICT: ${{ needs.live.outputs.verdict }}
       BLOCKED: ${{ needs.live.outputs.blocked }}
@@ -82,22 +85,50 @@ jobs:
       - name: Decide this week's verdict
         id: week
         run: |
-          if [ "$RESULT" = success ]; then verdict=passed
-          elif [ "$LIVE_VERDICT" = blocked ]; then verdict=blocked
-          else verdict=broken
-          fi
+          # A blocked-only live run exits 0, so job success is not "every platform passed".
+          case "$LIVE_VERDICT" in
+            passed|blocked|broken) verdict=$LIVE_VERDICT ;;
+            *)
+              if [ "$RESULT" = success ]; then verdict=passed; else verdict=broken; fi
+              ;;
+          esac
           mkdir -p week && echo "$verdict" > week/verdict
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Live check: \`$verdict\`"
+            echo
+            echo "Blocked: ${BLOCKED:-none}"
+            echo
+            echo "Broken: ${BROKEN:-none}"
+            echo
+            echo "Run: $RUN_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
       # Later scheduled runs read this to count blocked-only weeks in a row.
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'schedule'
         with:
           name: live-verdict
           path: week/
           retention-days: 35
-      - name: Open, update or close the live-check and live-blocked issues
+      - name: Summarize, and on the weekly schedule open or close issues
         env:
           VERDICT: ${{ steps.week.outputs.verdict }}
         run: |
+          streak=0
+          if [ "$VERDICT" = blocked ]; then
+            if [ "$EVENT" = schedule ]; then streak=1; fi
+            for id in $(gh run list --workflow live.yml --event schedule --status completed --limit 2 --json databaseId --jq '.[].databaseId'); do
+              rm -rf previous
+              gh run download "$id" --name live-verdict --dir previous 2>/dev/null || break
+              [ "$(cat previous/verdict 2>/dev/null)" = blocked ] || break
+              streak=$((streak + 1))
+            done
+            echo "Blocked from GitHub's network, $streak scheduled week(s) in a row: ${BLOCKED:-none}. Only broken platforms open \`live-check\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$EVENT" != schedule ]; then
+            echo "Manual run: recorded the verdict above and did not open or close issues." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           gh label create live-check --color D97757 --description "Weekly real-download check" 2>/dev/null || true
           gh label create live-blocked --color FBCA04 --description "A platform refused GitHub's network three weeks in a row" 2>/dev/null || true
           check=$(gh issue list --label live-check --state open --json number --jq '.[0].number')
@@ -119,14 +150,6 @@ jobs:
               if [ -n "$check" ]; then
                 gh issue close "$check" --comment "No platform is broken on $(date -u +%F): $RUN_URL. Blocked from GitHub's network: $BLOCKED."
               fi
-              streak=1
-              for id in $(gh run list --workflow live.yml --event schedule --status completed --limit 2 --json databaseId --jq '.[].databaseId'); do
-                rm -rf previous
-                gh run download "$id" --name live-verdict --dir previous 2>/dev/null || break
-                [ "$(cat previous/verdict)" = blocked ] || break
-                streak=$((streak + 1))
-              done
-              echo "Blocked from GitHub's network, $streak scheduled week(s) in a row: $BLOCKED. Only broken platforms open \`live-check\`." >> "$GITHUB_STEP_SUMMARY"
               if [ "$streak" -ge 3 ]; then
                 if [ -n "$blocked_issue" ]; then
                   gh issue comment "$blocked_issue" --body "Still blocked on $(date -u +%F): $BLOCKED. $RUN_URL"

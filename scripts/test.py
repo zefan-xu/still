@@ -108,6 +108,36 @@ def quality_metrics(root=None):
     return metrics
 
 
+def is_live_report(data):
+    """True when `data` is a JSON array of probe attempts.
+
+    `adb exec-out run-as … cat` exits 0 on API 35 even when the file is missing, and the bytes are
+    then `cat: files/live-….json: No such file or directory`. Smallest-quality runs never write the
+    photo, carousel and availability reports, so that text must not become evidence."""
+    try:
+        parsed = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return isinstance(parsed, list)
+
+
+def finished_status(report):
+    """Process status for a finished run.
+
+    Live (and `all`) exits 0 when the only failures are platforms that refused this network.
+    Anything broken, a runner error, or a failure outside the live probes still exits 1."""
+    if report.get("passed"):
+        return 0
+    if report.get("error") or report.get("mode") not in ("live", "all"):
+        return 1
+    live = report.get("live") or {}
+    if live.get("broken") or not live.get("blocked"):
+        return 1
+    if any(not suite.get("passed") for suite in report.get("suites", []) if "evidence" not in suite):
+        return 1
+    return 0
+
+
 def live_outcome(directory, suites):
     """Sorts live probes into passed, blocked (the platform refused this network) and broken.
 
@@ -325,7 +355,8 @@ class Run:
             filename = f"live-{platform}.json"
             result = subprocess.run(self.adb_args("exec-out", "run-as", PACKAGE, "cat", "files/" + filename),
                                     capture_output=True, timeout=30)
-            if result.returncode == 0:
+            # run-as often exits 0 and prints cat's error, so the bytes have to be a JSON array.
+            if result.returncode == 0 and is_live_report(result.stdout):
                 (destination / filename).write_bytes(result.stdout)
                 collected.append(filename)
         self.report["suites"][-1]["evidence"] = collected
@@ -422,9 +453,14 @@ class Run:
         finally:
             self.report["finished_utc"] = datetime.now(timezone.utc).isoformat()
             (self.directory / "report.json").write_text(json.dumps(self.report, indent=2) + "\n")
-            print(f"{'PASS' if self.report['passed'] else 'FAIL'}: {self.args.mode}", flush=True)
+            status = finished_status(self.report)
+            if status == 0 and not self.report["passed"]:
+                label = "BLOCKED"
+            else:
+                label = "PASS" if status == 0 else "FAIL"
+            print(f"{label}: {self.args.mode}", flush=True)
             print(f"Report: {self.directory / 'report.json'}", flush=True)
-        return 0 if self.report["passed"] else 1
+        return status
 
 
 def main():
