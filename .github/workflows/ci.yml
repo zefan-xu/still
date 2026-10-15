@@ -45,6 +45,7 @@ jobs:
             artifacts/test-runs/
             core-tests/build/test-results/
             core-tests/build/reports/
+            app/build/test-results/testDebugUnitTest/
             app/build/reports/lint-results-*
             app/build/outputs/apk/debug/
   device:

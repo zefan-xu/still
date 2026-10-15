@@ -244,19 +244,28 @@ class Run:
 
     def gradle(self):
         # check = JVM unit/property tests, Error Prone and coverage floors; pitest = mutation floor;
-        # assembleRelease runs lintVital and proves the unsigned release variant still builds.
+        # testDebugUnitTest runs the app module's JVM tests; assembleRelease runs lintVital.
         code, _, log = self.command("local", [str(ROOT / "gradlew"), ":core-tests:check", ":core-tests:pitest",
-                                 ":app:lintDebug", ":app:assembleDebug", ":app:assembleDebugAndroidTest",
-                                 ":app:assembleRelease"], timeout=2400)
-        results = list((ROOT / "core-tests/build/test-results/test").glob("TEST-*.xml"))
+                                 ":app:testDebugUnitTest", ":app:lintDebug", ":app:assembleDebug",
+                                 ":app:assembleDebugAndroidTest", ":app:assembleRelease"], timeout=2400)
+        results = []
+        missing_results = []
+        for directory in (ROOT / "core-tests/build/test-results/test",
+                          ROOT / "app/build/test-results/testDebugUnitTest"):
+            found = list(directory.glob("TEST-*.xml"))
+            if not found:
+                missing_results.append(str(directory.relative_to(ROOT)))
+            results.extend(found)
         count = failures = 0
         for path in results:
             suite = ET.parse(path).getroot()
             count += int(suite.get("tests", "0"))
             failures += int(suite.get("failures", "0")) + int(suite.get("errors", "0")) + int(suite.get("skipped", "0"))
-        passed = code == 0 and count > 0 and failures == 0
+        passed = code == 0 and count > 0 and failures == 0 and not missing_results
         self.report["suites"].append({"name": "local", "passed": passed, "exit_code": code, "log": log,
-                                     "jvm_tests": count, "jvm_failures_or_skips": failures, **quality_metrics()})
+                                     "jvm_tests": count, "jvm_failures_or_skips": failures,
+                                     **({"missing_results": missing_results} if missing_results else {}),
+                                     **quality_metrics()})
         if not passed:
             raise RuntimeError(f"Gradle checks failed; see {self.directory / log}")
 

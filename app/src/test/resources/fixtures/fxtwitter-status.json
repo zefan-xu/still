@@ -1,0 +1,26 @@
+{
+  "code": 200,
+  "tweet": {
+    "text": "A public clip",
+    "author": {"name": "Ada", "screen_name": "ada", "protected": false},
+    "media": {
+      "videos": [
+        {
+          "id": "1",
+          "type": "video",
+          "duration": 1.5,
+          "thumbnail_url": "https://pbs.twimg.com/ext_tw_video_thumb/1/pu/img/poster.jpg",
+          "url": "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/clip.mp4",
+          "formats": [
+            {
+              "url": "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/clip.mp4",
+              "container": "mp4",
+              "content_type": "video/mp4",
+              "bitrate": 480000
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
