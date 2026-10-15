@@ -49,7 +49,7 @@ public final class GifService extends Service {
   private static final String EXTRA_JOB_ID = "job_id";
   private static final int NOTIFICATION_ID = 4202;
   private static volatile String activeJobId;
-  private static volatile boolean running;
+  private static volatile boolean running, saved;
   private static volatile int currentProgress;
   private static volatile String currentStatus = "";
   private final AtomicBoolean cancelled = new AtomicBoolean();
@@ -70,6 +70,11 @@ public final class GifService extends Service {
   /** Retains the last result after conversion ends so the visible app can display it. */
   public static String getStatus() {
     return currentStatus;
+  }
+
+  /** Whether the last conversion saved its GIF. */
+  public static boolean saved() {
+    return saved;
   }
 
   /** Call from the visible app; a delayed cancel request cannot cancel a later export. */
@@ -100,7 +105,7 @@ public final class GifService extends Service {
       manager()
           .createNotificationChannel(
               new NotificationChannel(
-                  CHANNEL_ID, "GIF conversion", NotificationManager.IMPORTANCE_LOW));
+                  CHANNEL_ID, getString(R.string.gif_channel), NotificationManager.IMPORTANCE_LOW));
     }
   }
 
@@ -109,13 +114,13 @@ public final class GifService extends Service {
     if (intent != null && ACTION_CANCEL.equals(intent.getAction())) {
       if (busy && jobId.equals(intent.getStringExtra(EXTRA_JOB_ID))) {
         cancelled.set(true);
-        currentStatus = "Cancelling GIF conversion…";
+        currentStatus = getString(R.string.gif_cancelling);
         manager().notify(NOTIFICATION_ID, notification(currentStatus, currentProgress, true));
       } else if (!busy) stopSelf(startId);
       return START_NOT_STICKY;
     }
     if (busy) {
-      Toast.makeText(this, "A GIF is already being created", Toast.LENGTH_SHORT).show();
+      Toast.makeText(this, R.string.gif_already_running, Toast.LENGTH_SHORT).show();
       return START_NOT_STICKY;
     }
     if (intent == null || intent.getData() == null) {
@@ -127,12 +132,14 @@ public final class GifService extends Service {
     jobId = UUID.randomUUID().toString();
     activeJobId = jobId;
     currentProgress = 0;
-    currentStatus = "Preparing GIF…";
+    currentStatus = getString(R.string.gif_preparing);
     running = true;
+    saved = false;
     Uri source = intent.getData();
     String title = intent.getStringExtra(EXTRA_TITLE);
-    activeTitle = title == null || title.trim().isEmpty() ? "Saved video" : title;
-    Notification starting = notification("Preparing GIF…", 0, true);
+    activeTitle =
+        title == null || title.trim().isEmpty() ? getString(R.string.gif_default_title) : title;
+    Notification starting = notification(currentStatus, 0, true);
     if (Build.VERSION.SDK_INT >= 29) {
       int type =
           Build.VERSION.SDK_INT >= 35
@@ -153,7 +160,7 @@ public final class GifService extends Service {
   public void onDestroy() {
     cancelled.set(true);
     if (busy && jobId.equals(activeJobId)) {
-      currentStatus = "GIF conversion cancelled";
+      currentStatus = getString(R.string.gif_cancelled);
       running = false;
     }
     worker.shutdownNow();
@@ -180,23 +187,25 @@ public final class GifService extends Service {
       checkCancelled();
       DownloadStore.recordLocal(this, published.uri, title, filename, "image/gif");
       recorded = true;
-      result = "GIF saved to Downloads/" + DownloadStore.folder(this);
+      result = getString(R.string.gif_saved, DownloadStore.folder(this));
     } catch (CancelledException exception) {
-      result = "GIF conversion cancelled";
+      result = getString(R.string.gif_cancelled);
     } catch (OutOfMemoryError error) {
       // API 23–26 can only decode an original-sized frame before scaling it.
-      result = "GIF conversion failed: this video is too large for this device";
+      result = getString(R.string.gif_too_large);
     } catch (Exception exception) {
       String detail = exception.getMessage();
-      if (detail == null || detail.trim().isEmpty()) detail = "Unable to read this video";
+      if (detail == null || detail.trim().isEmpty())
+        detail = getString(R.string.gif_unreadable_error);
       detail = detail.replace('\n', ' ').replace('\r', ' ');
       if (detail.length() > 160) detail = detail.substring(0, 160);
-      result = "GIF conversion failed: " + detail;
+      result = getString(R.string.gif_failed, detail);
     } finally {
       if (!recorded && published != null) removePublished(published);
       if (temporary != null) temporary.delete();
     }
     String message = result;
+    boolean done = recorded;
     main.post(
         () -> {
           if (!jobId.equals(activeJobId)) return;
@@ -204,6 +213,7 @@ public final class GifService extends Service {
           busy = false;
           currentProgress = 100;
           currentStatus = message;
+          saved = done;
           running = false;
           manager().notify(NOTIFICATION_ID, notification(message, 100, false));
           stopSelf();
@@ -216,7 +226,7 @@ public final class GifService extends Service {
       retriever.setDataSource(this, source);
       long duration =
           parseLong(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
-      if (duration <= 0) throw new IOException("This video has no readable duration");
+      if (duration <= 0) throw new IOException(getString(R.string.gif_no_duration_error));
       duration = Math.min(duration, MAX_DURATION_MS);
       int[] requested = metadataDimensions(retriever);
       int count = (int) ((duration * FRAMES_PER_SECOND + 999) / 1000);
@@ -237,7 +247,7 @@ public final class GifService extends Service {
                   retriever.getScaledFrameAtTime(
                       timeUs, MediaMetadataRetriever.OPTION_CLOSEST, requested[0], requested[1]);
             } else frame = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST);
-            if (frame == null) throw new IOException("A video frame could not be decoded");
+            if (frame == null) throw new IOException(getString(R.string.gif_frame_error));
             checkCancelled();
             if (encoder == null) {
               int[] dimensions = scaledDimensions(frame.getWidth(), frame.getHeight());
@@ -262,11 +272,11 @@ public final class GifService extends Service {
           int progress = (index + 1) * 95 / count;
           if (progress != lastProgress) {
             lastProgress = progress;
-            updateProgress("Creating GIF: " + progress + "%", progress);
+            updateProgress(getString(R.string.gif_progress, progress), progress);
           }
         }
         checkCancelled();
-        if (encoder == null) throw new IOException("No video frames were found");
+        if (encoder == null) throw new IOException(getString(R.string.gif_no_frames_error));
         encoder.finish();
       }
     } finally {
@@ -275,7 +285,7 @@ public final class GifService extends Service {
   }
 
   private Published publish(File temporary, String title, String filename) throws Exception {
-    updateProgress("Saving GIF…", 95);
+    updateProgress(getString(R.string.gif_saving), 95);
     if (Build.VERSION.SDK_INT >= 29) {
       ContentValues values = new ContentValues();
       values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
@@ -285,18 +295,18 @@ public final class GifService extends Service {
           Environment.DIRECTORY_DOWNLOADS + "/" + DownloadStore.folder(this));
       values.put(MediaStore.Downloads.IS_PENDING, 1);
       Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-      if (uri == null) throw new IOException("Unable to create a Downloads entry");
+      if (uri == null) throw new IOException(getString(R.string.gif_create_entry_error));
       Published target = new Published(uri, null);
       try {
         try (OutputStream output = getContentResolver().openOutputStream(uri, "w")) {
-          if (output == null) throw new IOException("Unable to open the GIF destination");
+          if (output == null) throw new IOException(getString(R.string.gif_open_destination_error));
           copy(temporary, output);
         }
         checkCancelled();
         ContentValues complete = new ContentValues();
         complete.put(MediaStore.Downloads.IS_PENDING, 0);
         if (getContentResolver().update(uri, complete, null, null) != 1) {
-          throw new IOException("Unable to publish the GIF");
+          throw new IOException(getString(R.string.gif_publish_error));
         }
         return target;
       } catch (Exception exception) {
@@ -309,7 +319,7 @@ public final class GifService extends Service {
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             DownloadStore.folder(this));
     if (!directory.isDirectory() && !directory.mkdirs()) {
-      throw new IOException("Unable to create Downloads/Still");
+      throw new IOException(getString(R.string.gif_create_folder_error));
     }
     File file = new File(directory, filename);
     Uri uri = null;
@@ -324,7 +334,7 @@ public final class GifService extends Service {
       values.put(MediaStore.Images.Media.TITLE, title);
       values.put(MediaStore.Images.Media.MIME_TYPE, "image/gif");
       uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-      if (uri == null) throw new IOException("Unable to register the saved GIF");
+      if (uri == null) throw new IOException(getString(R.string.gif_register_error));
       MediaScannerConnection.scanFile(
           this, new String[] {file.getAbsolutePath()}, new String[] {"image/gif"}, null);
       return new Published(uri, file);
@@ -372,7 +382,7 @@ public final class GifService extends Service {
     builder
         .setSmallIcon(R.drawable.ic_notification)
         .setColor(0xffd97757)
-        .setContentTitle("Making a GIF")
+        .setContentTitle(getString(R.string.gif_notification_title))
         .setContentText(text)
         .setContentIntent(open)
         .setOngoing(ongoing)
@@ -394,7 +404,9 @@ public final class GifService extends Service {
           .setProgress(100, progress, progress == 0)
           .addAction(
               new Notification.Action.Builder(
-                      android.R.drawable.ic_menu_close_clear_cancel, "Cancel", stop)
+                      android.R.drawable.ic_menu_close_clear_cancel,
+                      getString(R.string.action_cancel),
+                      stop)
                   .build());
     }
     return builder.build();

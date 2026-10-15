@@ -588,7 +588,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
               GifService.getProgress() == 0 ? -1 : GifService.getProgress(),
               gifStatus));
     else if (!gifStatus.isEmpty()
-        && !gifStatus.startsWith("GIF saved")
+        && !GifService.saved()
         && !gifStatus.equals(dismissedGif))
       items.add(
           new LibraryModel.Item(

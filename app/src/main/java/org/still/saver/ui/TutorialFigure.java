@@ -45,12 +45,10 @@ import org.still.saver.R;
 public final class TutorialFigure extends View {
   public static final int SHARE = 0, PASTE = 1, SAVED = 2, STEPS = 3;
 
-  private static final String[] DESCRIPTIONS = {
-    "A phone shows a post in another app. A tap on Share opens the share sheet, a tap on Still"
-        + " opens Still's sheet over the post, and a tap on Save saves the photo.",
-    "A phone shows Still's home screen. A tap on Paste puts a link in the field, a tap on the"
-        + " arrow opens the photo in a sheet, and a tap on Save saves it.",
-    "A phone shows Still's library, where the saved photo drops in as the newest tile.",
+  private static final int[] DESCRIPTIONS = {
+    R.string.tutorial_share_description,
+    R.string.tutorial_paste_description,
+    R.string.tutorial_library_description,
   };
 
   /** Turn of the phone on each step, in degrees from its rest pose. */
@@ -92,7 +90,7 @@ public final class TutorialFigure extends View {
 
   public void show(int to) {
     if (to == step) return;
-    setContentDescription(DESCRIPTIONS[to]);
+    setContentDescription(getContext().getString(DESCRIPTIONS[to]));
     removeCallbacks(again);
     boolean calm = Motion.calm(getContext());
     if (step < 0 || !isAttachedToWindow() || calm) {

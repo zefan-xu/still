@@ -60,9 +60,6 @@ public final class CookieDownloadService extends Service {
   /** Doubles after each failed attempt at the same range. */
   private static final long RANGE_RETRY_MS = 1000;
 
-  private static final String NO_ROOM_TO_MERGE =
-      "Not enough free space to combine the video and audio";
-
   private static volatile CookieDownloadService instance;
   private static boolean starting;
   private final Handler main = new Handler(Looper.getMainLooper());
@@ -104,8 +101,10 @@ public final class CookieDownloadService extends Service {
       manager()
           .createNotificationChannel(
               new NotificationChannel(
-                  CHANNEL, "Media downloads", NotificationManager.IMPORTANCE_LOW));
-    Notification notification = notification("Preparing downloads…", -1);
+                  CHANNEL,
+                  getString(R.string.download_channel),
+                  NotificationManager.IMPORTANCE_LOW));
+    Notification notification = notification(getString(R.string.download_preparing), -1);
     if (Build.VERSION.SDK_INT >= 29)
       startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     else startForeground(NOTIFICATION_ID, notification);
@@ -132,7 +131,7 @@ public final class CookieDownloadService extends Service {
     synchronized (CookieDownloadService.class) {
       starting = false;
     }
-    Notification notification = notification("Preparing downloads…", -1);
+    Notification notification = notification(getString(R.string.download_preparing), -1);
     if (Build.VERSION.SDK_INT >= 29)
       startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     else startForeground(NOTIFICATION_ID, notification);
@@ -158,7 +157,7 @@ public final class CookieDownloadService extends Service {
           DownloadManager.PAUSED_WAITING_TO_RETRY,
           0,
           -1,
-          "Paused · Open Still to resume",
+          getString(R.string.status_paused_open_still),
           0,
           job.attempts);
     for (Transfer transfer : transfers.values()) transfer.cancel();
@@ -197,9 +196,10 @@ public final class CookieDownloadService extends Service {
               int pause = networkPause(job.wifi);
               if (pause != 0) {
                 String detail =
-                    pause == DownloadManager.PAUSED_QUEUED_FOR_WIFI
-                        ? "Waiting for Wi-Fi"
-                        : "Waiting for a connection";
+                    getString(
+                        pause == DownloadManager.PAUSED_QUEUED_FOR_WIFI
+                            ? R.string.status_waiting_wifi
+                            : R.string.status_waiting_connection);
                 if (job.entry.status != DownloadManager.STATUS_PAUSED
                     || !detail.equals(job.entry.detail))
                   DownloadStore.updateCookie(
@@ -230,7 +230,7 @@ public final class CookieDownloadService extends Service {
             }
             String label =
                 jobs.isEmpty()
-                    ? "Waiting in the download queue"
+                    ? getString(R.string.download_queued)
                     : jobs.get(0).entry.description(CookieDownloadService.this);
             int progress = -1;
             if (!jobs.isEmpty() && jobs.get(0).entry.total > 0)
@@ -353,9 +353,10 @@ public final class CookieDownloadService extends Service {
           update(
               DownloadManager.STATUS_PAUSED,
               pause.reason,
-              pause.reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI
-                  ? "Waiting for Wi-Fi"
-                  : "Waiting for a connection",
+              getString(
+                  pause.reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI
+                      ? R.string.status_waiting_wifi
+                      : R.string.status_waiting_connection),
               0,
               job.attempts);
         } catch (Cancelled ignored) {
@@ -368,10 +369,9 @@ public final class CookieDownloadService extends Service {
           bytes = 0;
           total = -1;
           String detail =
-              retry
-                  ? "Connection interrupted · Still will restart the download"
-                  : "Download failed · Retry or find the post again";
-          if (error instanceof PermanentFailure) detail = error.getMessage();
+              getString(retry ? R.string.status_interrupted : R.string.status_transfer_failed);
+          if (error instanceof PermanentFailure)
+            detail = getString(((PermanentFailure) error).detail);
           try {
             update(
                 retry ? DownloadManager.STATUS_PAUSED : DownloadManager.STATUS_FAILED,
@@ -413,17 +413,21 @@ public final class CookieDownloadService extends Service {
         update(DownloadManager.STATUS_RUNNING, 0, "", 0, job.attempts);
         downloadRanges(target, videoLength, video);
         downloadRanges(audio, audioLength, sound);
-        update(DownloadManager.STATUS_RUNNING, 0, "Combining video and audio", 0, job.attempts);
+        update(
+            DownloadManager.STATUS_RUNNING,
+            0,
+            getString(R.string.status_combining),
+            0,
+            job.attempts);
         makeRoom(partial, video.length() + sound.length());
         try {
           StreamMerger.merge(video, sound, partial, job.entry.mime, this::stale);
         } catch (StreamMerger.Unmergeable e) {
           checkCurrent();
-          throw new PermanentFailure("Could not combine the video and audio. Try another quality.");
+          throw new PermanentFailure(R.string.status_merge_failed);
         } catch (IOException e) {
           checkCurrent();
-          throw new PermanentFailure(
-              "Could not write the combined video. Check free space and retry.");
+          throw new PermanentFailure(R.string.status_merge_write_failed);
         }
         bytes = total = partial.length();
       } finally {
@@ -448,7 +452,7 @@ public final class CookieDownloadService extends Service {
       try {
         storage.allocateBytes(volume, bytes);
       } catch (IOException full) {
-        throw new PermanentFailure(NO_ROOM_TO_MERGE);
+        throw new PermanentFailure(R.string.status_no_room_to_merge);
       } catch (RuntimeException unknown) {
         // Let the merge itself report a failure.
       }
@@ -463,7 +467,7 @@ public final class CookieDownloadService extends Service {
                 ? request.getContentLengthLong()
                 : rangeLength(request.getHeaderField("Content-Range"));
         if (length <= 0)
-          throw new PermanentFailure("The media server did not report the file size.");
+          throw new PermanentFailure(R.string.status_no_size);
         return length;
       } finally {
         request.disconnect();
@@ -509,7 +513,7 @@ public final class CookieDownloadService extends Service {
         } else {
           long[] range = ByteRanges.parse(request.getHeaderField("Content-Range"));
           if (range != null && range[2] != length)
-            throw new PermanentFailure("The media file changed during the download. Retry.");
+            throw new PermanentFailure(R.string.status_file_changed);
           if (range == null || range[0] != position)
             throw new IOException("The media server sent an unexpected range");
           expected = range[1] - range[0] + 1;
@@ -598,12 +602,11 @@ public final class CookieDownloadService extends Service {
           String location = request.getHeaderField("Location");
           request.disconnect();
           if (redirects == 5 || location == null || location.length() > 8192)
-            throw new PermanentFailure(
-                "Too many or invalid download redirects. Find the post again.");
+            throw new PermanentFailure(R.string.status_bad_redirects);
           try {
             target = httpsUri(target.resolve(location).toString());
           } catch (IllegalArgumentException e) {
-            throw new PermanentFailure("Invalid download redirect");
+            throw new PermanentFailure(R.string.status_invalid_redirect);
           }
           continue;
         }
@@ -611,17 +614,16 @@ public final class CookieDownloadService extends Service {
             && (range == null || response != HttpURLConnection.HTTP_PARTIAL)) {
           if (response == 408 || response == 429 || response >= 500)
             throw new IOException("Temporary server response");
-          throw new PermanentFailure("The media link is unavailable. Find the post again.");
+          throw new PermanentFailure(R.string.status_link_unavailable);
         }
         String type = request.getContentType();
         if (type != null
             && (type.toLowerCase(Locale.ROOT).startsWith("text/")
                 || type.toLowerCase(Locale.ROOT).startsWith("application/json")))
-          throw new PermanentFailure(
-              "The server returned a page instead of media. Find the post again.");
+          throw new PermanentFailure(R.string.status_not_media);
         return request;
       }
-      throw new PermanentFailure("Too many download redirects");
+      throw new PermanentFailure(R.string.status_too_many_redirects);
     }
 
     private Published publish(File partial) throws IOException {
@@ -652,7 +654,7 @@ public final class CookieDownloadService extends Service {
                 + (dot < 0 ? "" : base.substring(dot));
         values.put(MediaStore.MediaColumns.DISPLAY_NAME, attemptName);
         legacy = new File(directory, attemptName);
-        if (legacy.exists()) throw new PermanentFailure("A file with this name already exists");
+        if (legacy.exists()) throw new PermanentFailure(R.string.status_file_exists);
         values.put(MediaStore.MediaColumns.DATA, legacy.getAbsolutePath());
         Uri collection =
             job.entry.mime.startsWith("image/")
@@ -730,7 +732,7 @@ public final class CookieDownloadService extends Service {
           || uri.getPort() > 65535) throw new IllegalArgumentException();
       return uri;
     } catch (Exception e) {
-      throw new PermanentFailure("Only valid HTTPS media redirects are supported");
+      throw new PermanentFailure(R.string.status_https_only);
     }
   }
 
@@ -744,9 +746,12 @@ public final class CookieDownloadService extends Service {
     }
   }
 
+  /** Ends the transfer with {@link #detail}, a string resource, as the library status. */
   private static final class PermanentFailure extends IOException {
-    PermanentFailure(String message) {
-      super(message);
+    final int detail;
+
+    PermanentFailure(int detail) {
+      this.detail = detail;
     }
   }
 
@@ -771,7 +776,7 @@ public final class CookieDownloadService extends Service {
     return builder
         .setSmallIcon(R.drawable.ic_notification)
         .setColor(0xffd97757)
-        .setContentTitle("Downloading")
+        .setContentTitle(getString(R.string.download_notification_title))
         .setContentText(label)
         .setContentIntent(open)
         .setOngoing(true)
