@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.still.saver;
 
+import android.content.Context;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -9,6 +10,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import java.util.Locale;
 import org.still.saver.core.Media;
 import org.still.saver.core.Platforms;
 import org.still.saver.core.Post;
@@ -77,7 +79,10 @@ final class ResultsSheet {
   }
 
   private View lookingUp(Actions actions) {
-    LinearLayout box = sheet.frame("Finding media…", "Checking the public post. This can take a few seconds.");
+    LinearLayout box =
+        sheet.frame(
+            ui.activity.getString(R.string.save_finding_title),
+            ui.activity.getString(R.string.save_finding_body));
     LinearLayout inner = padded();
     View skeleton = new View(ui.activity);
     skeleton.setBackground(ui.shape(ui.theme.raised, 16, 0));
@@ -87,7 +92,9 @@ final class ResultsSheet {
     line.setProgress(-1);
     inner.addView(line, new LinearLayout.LayoutParams(-1, ui.dp(3)));
     ui.gap(inner, 12);
-    inner.addView(ui.secondaryButton("Cancel", actions::cancel), new LinearLayout.LayoutParams(-1, -2));
+    inner.addView(
+        ui.secondaryButton(ui.activity.getString(R.string.action_cancel), actions::cancel),
+        new LinearLayout.LayoutParams(-1, -2));
     box.addView(inner);
     return box;
   }
@@ -110,7 +117,10 @@ final class ResultsSheet {
         });
     ui.gap(box, 12);
     TextView title =
-        ui.title(session.added() == 0 ? "Already downloading" : "Added to Still", 22);
+        ui.title(
+            ui.activity.getString(
+                session.added() == 0 ? R.string.save_already_title : R.string.save_added_title),
+            22);
     title.setTag("sheet-title");
     title.setGravity(Gravity.CENTER);
     box.addView(title);
@@ -118,36 +128,46 @@ final class ResultsSheet {
     TextView detail =
         ui.secondary(
             session.added() == 0
-                ? "This media is already in your library queue."
-                : Format.count(session.added(), "item")
-                    + " downloading in the background. Find "
-                    + (session.added() == 1 ? "it" : "them")
-                    + " in your library.");
+                ? ui.activity.getString(R.string.save_already_body)
+                : ui.activity
+                    .getResources()
+                    .getQuantityString(
+                        R.plurals.save_added_body, session.added(), session.added()));
     detail.setGravity(Gravity.CENTER);
     box.addView(detail);
     ui.gap(box, 20);
-    box.addView(ui.primaryButton("View in Still", actions::openApp), new LinearLayout.LayoutParams(-1, -2));
+    box.addView(
+        ui.primaryButton(ui.activity.getString(R.string.save_view), actions::openApp),
+        new LinearLayout.LayoutParams(-1, -2));
     ui.gap(box, 8);
-    box.addView(ui.secondaryButton("Done", actions::close), new LinearLayout.LayoutParams(-1, -2));
+    box.addView(
+        ui.secondaryButton(ui.activity.getString(R.string.action_done), actions::close),
+        new LinearLayout.LayoutParams(-1, -2));
     return box;
   }
 
   private View error(SaveSession session, Actions actions) {
-    LinearLayout box = sheet.frame("Couldn’t get this post", session.message());
+    LinearLayout box =
+        sheet.frame(ui.activity.getString(R.string.save_error_title), session.message());
     if (!session.submitted().isEmpty() && Platforms.detect(session.submitted()) == null) {
       TextView links =
           ui.quietButton(
-              "See supported links", () -> sheet.replace(SupportedLinks.build(ui, sheet)));
+              ui.activity.getString(R.string.links_see),
+              () -> sheet.replace(SupportedLinks.build(ui, sheet)));
       LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
       params.setMarginStart(ui.dp(10));
       box.addView(links, params);
     }
     LinearLayout buttons = ui.row();
     buttons.setPadding(ui.dp(24), ui.dp(8), ui.dp(24), ui.dp(4));
-    buttons.addView(ui.secondaryButton("Open Still", actions::openApp), new LinearLayout.LayoutParams(0, -2, 1));
+    buttons.addView(
+        ui.secondaryButton(ui.activity.getString(R.string.save_open_still), actions::openApp),
+        new LinearLayout.LayoutParams(0, -2, 1));
     View space = new View(ui.activity);
     buttons.addView(space, new LinearLayout.LayoutParams(ui.dp(12), 1));
-    buttons.addView(ui.primaryButton("Close", actions::close), new LinearLayout.LayoutParams(0, -2, 1));
+    buttons.addView(
+        ui.primaryButton(ui.activity.getString(R.string.action_close), actions::close),
+        new LinearLayout.LayoutParams(0, -2, 1));
     box.addView(buttons);
     return box;
   }
@@ -157,7 +177,10 @@ final class ResultsSheet {
     LinearLayout box = ui.column();
     box.setPadding(0, ui.dp(8), 0, ui.dp(4));
     LinearLayout head = padded();
-    TextView author = ui.title(post.author.isEmpty() ? "Media found" : post.author, 20);
+    TextView author =
+        ui.title(
+            post.author.isEmpty() ? ui.activity.getString(R.string.save_media_found) : post.author,
+            20);
     author.setTag("sheet-title");
     author.setTypeface(org.still.saver.ui.Fonts.medium());
     author.setTextSize(17);
@@ -208,23 +231,70 @@ final class ResultsSheet {
       footer.addView(problem);
     }
     ui.gap(footer, 18);
-    footer.addView(ui.primaryButton(saveLabel(session), actions::save), new LinearLayout.LayoutParams(-1, -2));
+    footer.addView(
+        ui.primaryButton(saveLabel(ui.activity, session), actions::save),
+        new LinearLayout.LayoutParams(-1, -2));
     ui.gap(footer, 10);
-    TextView where = ui.caption("Saves to Downloads/" + DownloadStore.folder(ui.activity));
+    TextView where =
+        ui.caption(
+            ui.activity.getString(R.string.save_destination, DownloadStore.folder(ui.activity)));
     where.setGravity(Gravity.CENTER);
     footer.addView(where, new LinearLayout.LayoutParams(-1, -2));
     box.addView(footer);
     return box;
   }
 
-  static String saveLabel(SaveSession session) {
+  static String saveLabel(Context context, SaveSession session) {
     Post post = session.post();
     int included = session.includedCount();
     if (post.media.size() == 1) {
       String kind = Format.kind(post.media.get(0).kind);
-      return "Save " + ("GIF".equals(kind) ? kind : kind.toLowerCase(java.util.Locale.ROOT));
+      switch (kind) {
+        case "video":
+          return context.getString(R.string.save_one_video);
+        case "gif":
+          return context.getString(R.string.save_one_gif);
+        case "photo":
+          return context.getString(R.string.save_one_photo);
+        case "":
+          return context.getString(R.string.save_one_media);
+        default:
+          return context.getString(R.string.save_one_other, kind.toLowerCase(Locale.ROOT));
+      }
     }
-    return "Save " + Format.count(included, "item");
+    return context.getResources().getQuantityString(R.plurals.save_items, included, included);
+  }
+
+  /** "Video", "GIF", "Photo"; the start of a line or a name such as "Video 1". */
+  private String kindLabel(String kind) {
+    switch (Format.kind(kind)) {
+      case "video":
+        return ui.activity.getString(R.string.kind_video);
+      case "gif":
+        return ui.activity.getString(R.string.kind_gif);
+      case "photo":
+        return ui.activity.getString(R.string.kind_photo);
+      case "":
+        return ui.activity.getString(R.string.kind_media);
+      default:
+        return Format.capitalized(kind);
+    }
+  }
+
+  /** The kind inside a sentence, such as "Quality for video 1". */
+  private String kindInline(String kind) {
+    switch (Format.kind(kind)) {
+      case "video":
+        return ui.activity.getString(R.string.kind_video_inline);
+      case "gif":
+        return ui.activity.getString(R.string.kind_gif_inline);
+      case "photo":
+        return ui.activity.getString(R.string.kind_photo_inline);
+      case "":
+        return ui.activity.getString(R.string.kind_media_inline);
+      default:
+        return kind.toLowerCase(Locale.ROOT);
+    }
   }
 
   private FrameLayout tile(SaveSession session, int index, boolean selectable) {
@@ -241,8 +311,12 @@ final class ResultsSheet {
     if (media.thumbnail != null)
       Thumbnails.get(ui.activity).bindRemote(preview, media.thumbnail, Thumbnails.Sizes.PREVIEW, null);
     if (media.durationMs > 0) frame.addView(badge(Format.duration(media.durationMs)), corner(Gravity.BOTTOM | Gravity.END));
-    else if ("gif".equals(media.kind)) frame.addView(badge("GIF"), corner(Gravity.BOTTOM | Gravity.END));
-    String name = Format.kind(media.kind) + " " + (index + 1);
+    else if ("gif".equals(media.kind))
+      frame.addView(
+          badge(ui.activity.getString(R.string.library_gif_badge)),
+          corner(Gravity.BOTTOM | Gravity.END));
+    String name =
+        ui.activity.getString(R.string.save_media_name, kindLabel(media.kind), index + 1);
     if (selectable) {
       boolean included = session.included(index);
       ImageView check =
@@ -264,7 +338,8 @@ final class ResultsSheet {
               check.setScaleY(scale);
             });
       } else preview.setAlpha(dim);
-      frame.setContentDescription("Include media " + (index + 1) + ", " + name);
+      frame.setContentDescription(
+          ui.activity.getString(R.string.save_include_description, index + 1, name));
       frame.setFocusable(true);
       frame.setClickable(true);
       frame.setSelected(included);
@@ -298,7 +373,10 @@ final class ResultsSheet {
     LinearLayout line = ui.row();
     boolean video = !media.kind.equals("photo");
     String resolution = Format.resolution(variant.width, variant.height, video);
-    String text = Format.kind(media.kind) + (resolution.isEmpty() || ask ? "" : " · " + resolution);
+    String text =
+        resolution.isEmpty() || ask
+            ? kindLabel(media.kind)
+            : ui.activity.getString(R.string.save_media_meta, kindLabel(media.kind), resolution);
     TextView kind = ui.caption(text);
     kind.setSingleLine();
     kind.setEllipsize(TextUtils.TruncateAt.END);
@@ -311,7 +389,8 @@ final class ResultsSheet {
                 expanded = expanded == index ? -1 : index;
                 session.refresh();
               });
-      chip.setContentDescription("Quality for media " + (index + 1));
+      chip.setContentDescription(
+          ui.activity.getString(R.string.save_quality_description, index + 1));
       chip.setTextSize(13);
       line.addView(chip);
     } else if (ask) {
@@ -325,7 +404,9 @@ final class ResultsSheet {
     Media media = session.post().media.get(index);
     LinearLayout box = padded();
     ui.gap(box, 14);
-    TextView heading = ui.caption("Quality for " + Format.kind(media.kind).toLowerCase(java.util.Locale.ROOT) + " " + (index + 1));
+    TextView heading =
+        ui.caption(
+            ui.activity.getString(R.string.save_quality_title, kindInline(media.kind), index + 1));
     box.addView(heading);
     ui.gap(box, 8);
     HorizontalScrollView scroller = new HorizontalScrollView(ui.activity);

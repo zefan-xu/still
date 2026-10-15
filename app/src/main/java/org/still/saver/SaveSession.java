@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.still.saver.core.Media;
 import org.still.saver.core.Post;
 import org.still.saver.core.PublicPageResolver;
 import org.still.saver.core.Variant;
@@ -115,7 +114,7 @@ final class SaveSession {
     String text = input == null ? "" : input.trim();
     if (text.isEmpty()) {
       phase = Phase.ERROR;
-      message = "Paste or share a post link first.";
+      message = app.getString(R.string.save_link_empty);
       changed();
       return;
     }
@@ -149,7 +148,7 @@ final class SaveSession {
                       phase = Phase.ERROR;
                       message =
                           e.getMessage() == null
-                              ? "Could not read this post. Try again."
+                              ? app.getString(R.string.save_lookup_failed)
                               : e.getMessage();
                       changed();
                     });
@@ -223,7 +222,7 @@ final class SaveSession {
     List<Integer> indexes = new ArrayList<>();
     for (int i = 0; i < selected.media.size(); i++) if (included(i)) indexes.add(i);
     if (indexes.isEmpty()) {
-      message = "Choose at least one item to save.";
+      message = app.getString(R.string.save_none_selected);
       changed();
       return;
     }
@@ -233,7 +232,8 @@ final class SaveSession {
         if (DownloadStore.enqueue(activity, selected, i, chosen(i))) count++;
         else skipped++;
     } catch (RuntimeException e) {
-      message = e.getMessage() == null ? "The download could not be queued." : e.getMessage();
+      message =
+          e.getMessage() == null ? app.getString(R.string.save_queue_failed) : e.getMessage();
       changed();
       return;
     }
@@ -264,9 +264,5 @@ final class SaveSession {
     excluded.clear();
     autoSave = DownloadStore.prefs(app).getBoolean("auto", false);
     changed();
-  }
-
-  static String kindLabel(Media media) {
-    return org.still.saver.ui.Format.kind(media.kind);
   }
 }
