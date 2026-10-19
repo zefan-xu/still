@@ -30,20 +30,20 @@ android {
     signingConfigs {
         release {
             def keystore = System.getenv('STILL_KEYSTORE')
-            def storePassword = System.getenv('STILL_KEYSTORE_PASSWORD')
+            def keystorePassword = System.getenv('STILL_KEYSTORE_PASSWORD')
             def alias = System.getenv('STILL_KEY_ALIAS')
-            def keyPassword = System.getenv('STILL_KEY_PASSWORD')
+            def keyEntryPassword = System.getenv('STILL_KEY_PASSWORD')
             if (requireSigning && !keystore) {
                 throw new GradleException('STILL_KEYSTORE is required to sign this release. Refusing an unsigned APK.')
             }
-            if (keystore && (!storePassword || !alias || !keyPassword)) {
+            if (keystore && (!keystorePassword || !alias || !keyEntryPassword)) {
                 throw new GradleException('STILL_KEYSTORE is set but STILL_KEYSTORE_PASSWORD, STILL_KEY_ALIAS or STILL_KEY_PASSWORD is missing. Refusing an unsigned APK.')
             }
             if (keystore) {
                 storeFile file(keystore)
-                storePassword storePassword
+                storePassword keystorePassword
                 keyAlias alias
-                keyPassword keyPassword
+                keyPassword keyEntryPassword
             }
         }
     }
