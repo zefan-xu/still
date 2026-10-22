@@ -156,6 +156,11 @@ public final class SettingsActivity extends Activity {
         ui.valueRow(getString(R.string.settings_api), URI.create(api).getHost(), this::editApi));
     list.addView(
         ui.valueRow(
+            getString(R.string.settings_telegram),
+            getString(R.string.settings_telegram_summary),
+            () -> startActivity(TelegramWebActivity.intent(this, null))));
+    list.addView(
+        ui.valueRow(
             getString(R.string.settings_extractor),
             updating
                 ? getString(R.string.settings_extractor_checking)

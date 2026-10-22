@@ -6,14 +6,14 @@ body:
     id: platform
     attributes:
       label: Platform
-      options: [X / Twitter, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube]
+      options: [X / Twitter, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube, Telegram]
     validations:
       required: true
   - type: input
     id: link
     attributes:
-      label: Public post link
-      description: Only public posts are supported. Remove anything personal from the link.
+      label: Post link
+      description: Public links can be tested directly. For private Telegram links, describe the post without sharing account credentials.
       placeholder: https://www.threads.com/@nasa/post/…
     validations:
       required: true

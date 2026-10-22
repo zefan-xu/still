@@ -56,7 +56,7 @@ public final class FunctionalUiTest {
         onView(withContentDescription("Find media")).perform(click());
         TestFixtures.await(
             "invalid clipboard feedback",
-            () -> feedback(screen).startsWith("Use an HTTPS public post link"));
+            () -> feedback(screen).startsWith("Use a supported HTTPS post link"));
         onView(withHint("Paste a link"))
             .check(matches(withText("https://example.com/not-a-supported-post")));
         onView(withContentDescription("Find media")).check(matches(isEnabled()));
@@ -82,7 +82,7 @@ public final class FunctionalUiTest {
                     .putExtra(Intent.EXTRA_TEXT, "https://example.com/invalid"))) {
       TestFixtures.await(
           "invalid share feedback",
-          () -> shareMessage(screen).startsWith("Use an HTTPS public post link"));
+          () -> shareMessage(screen).startsWith("Use a supported HTTPS post link"));
       onView(withText("Couldn’t get this post")).check(matches(isDisplayed()));
       onView(withText("Open Still")).check(matches(isDisplayed()));
       assertTrue(DownloadStore.list(f.app).isEmpty());

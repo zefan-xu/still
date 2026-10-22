@@ -16,6 +16,36 @@ public class ExtractorJsonParserTest {
   private static final String SOURCE = "https://www.instagram.com/reel/Abc123/";
 
   @Test
+  public void readsTelegramEmbedAlbumVideos() throws Exception {
+    JSONObject first =
+        new JSONObject()
+            .put("id", "613")
+            .put("channel", "Example channel")
+            .put("formats", new JSONArray().put(telegramFormat("first.mp4")));
+    JSONObject second =
+        new JSONObject()
+            .put("id", "614")
+            .put("channel", "Example channel")
+            .put("formats", new JSONArray().put(telegramFormat("second.mp4")));
+    JSONObject root =
+        new JSONObject()
+            .put("extractor_key", "TelegramEmbed")
+            .put("title", "Example channel 613")
+            .put("entries", new JSONArray().put(first).put(second));
+
+    Post post =
+        ExtractorJsonParser.parse(root.toString(), "https://t.me/example_channel/613");
+
+    assertEquals("Example channel 613", post.title);
+    assertEquals("Example channel", post.author);
+    assertEquals(2, post.media.size());
+    assertEquals(
+        "https://cdn4.telesco.pe/file/first.mp4",
+        post.media.get(0).chooseVariant("best").url);
+    assertEquals("video/mp4", post.media.get(1).chooseVariant("best").mimeType);
+  }
+
+  @Test
   public void prefersCombinedMp4AndPreservesOnlyAllowedRequestHeaders() throws Exception {
     JSONObject headers =
         new JSONObject()
@@ -535,6 +565,14 @@ public class ExtractorJsonParserTest {
         .put("acodec", "aac")
         .put("protocol", "https")
         .put("tbr", kilobits);
+  }
+
+  private static JSONObject telegramFormat(String name) throws Exception {
+    return new JSONObject()
+        .put("url", "https://cdn4.telesco.pe/file/" + name)
+        .put("ext", "mp4")
+        .put("protocol", "https")
+        .put("http_headers", new JSONObject().put("User-Agent", "Synthetic agent"));
   }
 
   private static String youtubeUrl(String formatId) {

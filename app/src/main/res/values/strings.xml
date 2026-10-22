@@ -30,7 +30,7 @@
     <string name="snackbar_fallback">The action could not be completed.</string>
 
     <string name="links_title">Supported links</string>
-    <string name="links_body">Share or paste a link to a public post from:</string>
+    <string name="links_body">Share or paste a supported post link from:</string>
     <string name="links_examples_description">Links like %1$s</string>
     <string name="links_unsupported_title">Not supported</string>
     <string name="links_see">See supported links</string>
@@ -42,8 +42,9 @@
     <string name="links_threads_summary">Photos, videos</string>
     <string name="links_bluesky_summary">Photos, videos</string>
     <string name="links_youtube_summary">Videos, Shorts (up to 4K)</string>
-    <string name="links_limit_public">Public posts only</string>
-    <string name="links_limit_login">No login-required or private posts</string>
+    <string name="links_telegram_summary">Videos</string>
+    <string name="links_limit_public">Public posts on most platforms</string>
+    <string name="links_limit_login">Telegram private channels need web sign-in</string>
     <string name="links_limit_streaming">No streaming-only video</string>
     <string name="links_limit_facebook_photos">No Facebook photos</string>
 
@@ -84,7 +85,7 @@
     <string name="library_search_empty">No files match this search.</string>
     <string name="library_empty_title">Nothing saved yet.</string>
     <string name="library_empty_body">Share a post to Still from any app, or paste a link above.</string>
-    <string name="library_empty_platforms">Works with public posts on %1$s. Files stay on this device.</string>
+    <string name="library_empty_platforms">Works with %1$s. Telegram private channels use optional web sign-in.</string>
     <string name="library_gif_making">Making a GIF</string>
     <string name="library_gif_failed">GIF not saved</string>
     <string name="library_gif_badge">GIF</string>
@@ -199,7 +200,7 @@
     <string name="onboarding_paste_body">Copy a post\'s link, paste it into the field at the top of Still and tap the arrow.</string>
     <string name="onboarding_library_title">It all lands in your library</string>
     <string name="onboarding_library_body">Files save to Downloads/%1$s on this device and show up on Still\'s home screen.</string>
-    <string name="onboarding_platforms">Works with public posts on %1$s.</string>
+    <string name="onboarding_platforms">Works with %1$s.</string>
     <string name="onboarding_step_description">Step %1$d of %2$d</string>
     <string name="tutorial_share_description">A phone shows a post in another app. A tap on Share opens the share sheet, a tap on Still opens Still\'s sheet over the post, and a tap on Save saves the photo.</string>
     <string name="tutorial_paste_description">A phone shows Still\'s home screen. A tap on Paste puts a link in the field, a tap on the arrow opens the photo in a sheet, and a tap on Save saves it.</string>
@@ -224,7 +225,7 @@
     <string name="kind_media_inline">media</string>
 
     <string name="save_finding_title">Finding media…</string>
-    <string name="save_finding_body">Checking the public post. This can take a few seconds.</string>
+    <string name="save_finding_body">Checking the post. This can take a few seconds.</string>
     <string name="save_added_title">Added to Still</string>
     <plurals name="save_added_body">
         <item quantity="one">%d item downloading in the background. Find it in your library.</item>
@@ -285,9 +286,11 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_sources_title">Sources</string>
+    <string name="settings_telegram">Telegram Web</string>
+    <string name="settings_telegram_summary">Sign in for private or restricted channels</string>
     <plurals name="settings_links_summary">
-        <item quantity="one">%d platform · public posts only</item>
-        <item quantity="other">%d platforms · public posts only</item>
+        <item quantity="one">%d supported platform</item>
+        <item quantity="other">%d supported platforms</item>
     </plurals>
     <string name="settings_api">X metadata service</string>
     <string name="settings_api_body">FxTwitter is an open-source public service. You can use a compatible self-hosted HTTPS endpoint.</string>
@@ -306,12 +309,24 @@
     <string name="settings_version_summary">Open source · GPL-3.0-or-later</string>
     <string name="settings_licenses">Open-source licenses</string>
     <string name="settings_licenses_notices">Third-party notices</string>
-    <string name="settings_privacy">No ads, analytics, purchases or accounts. Preferences and history stay on this device. Public media only: login-required, deleted and protected posts may not be available.</string>
+    <string name="settings_privacy">No ads, analytics or purchases. Telegram sign-in happens in an in-app web view, and its session stays on this device. Deleted and protected posts may still be unavailable.</string>
 
-    <string name="error_link_empty">Paste a public post link first.</string>
+    <string name="telegram_title">Telegram Web</string>
+    <string name="telegram_video_title">Telegram video</string>
+    <string name="telegram_save_video">Save video</string>
+    <string name="telegram_sign_in_hint">Sign in if asked, open the video, then tap Save video.</string>
+    <string name="telegram_finding_video">Looking for the open video…</string>
+    <string name="telegram_downloading">Saving the Telegram video…</string>
+    <string name="telegram_saved">Saved to Downloads.</string>
+    <string name="telegram_capture_failed">Could not save this video. Open it in Telegram and try again.</string>
+    <string name="telegram_external_link_blocked">Links outside Telegram are blocked in this sign-in view.</string>
+    <string name="telegram_secure_connection_failed">Telegram could not be opened securely.</string>
+    <string name="telegram_open_web">Open Telegram Web</string>
+
+    <string name="error_link_empty">Paste a post link first.</string>
     <string name="error_link_too_long">The pasted link is too long.</string>
-    <string name="error_link_not_https">Use an HTTPS public post link.</string>
-    <string name="error_link_unsupported">Use an HTTPS public post link from %1$s.</string>
+    <string name="error_link_not_https">Use an HTTPS post link.</string>
+    <string name="error_link_unsupported">Use a supported HTTPS post link from %1$s.</string>
     <string name="error_x_link_empty">Paste a public X or Twitter post link first.</string>
     <string name="error_x_link_unsupported">Use an HTTPS X or Twitter post link, or a direct Twitter media link.</string>
     <string name="error_cancelled">Media extraction was cancelled.</string>
@@ -333,7 +348,7 @@
     <string name="error_service_too_large">The media service response is too large.</string>
     <string name="error_service_unreadable">The media service returned an unreadable response. Try again later.</string>
     <string name="error_service_post_unavailable">The post is unavailable to the public media service.</string>
-    <string name="error_service_no_media">This public post has no downloadable videos, GIFs, or photos.</string>
+    <string name="error_service_no_media">This post has no downloadable videos, GIFs, or photos.</string>
     <string name="error_service_rate_limited">The media service is rate limited. Wait a moment and try again.</string>
     <string name="error_service_private">This post is private or restricted. Only public posts can be saved.</string>
     <string name="error_service_not_found">This post could not be found. It may be deleted or unavailable.</string>
@@ -350,7 +365,8 @@
     <string name="error_extractor_login">This post requires login or is restricted. Only publicly available media is supported.</string>
     <string name="error_extractor_unsupported">The bundled extractor does not support this public link yet.</string>
     <string name="error_extractor_start_failed">This device could not start the bundled media extractor.</string>
-    <string name="error_extractor_failed">Could not load this public post. Check your connection; the post may be deleted or unavailable.</string>
+    <string name="error_extractor_failed">Could not load this post. Check your connection; it may be deleted or unavailable.</string>
+    <string name="error_telegram_auth_required">This private Telegram channel needs an authenticated web session.</string>
     <string name="error_no_complete_video">This post has no downloadable complete video file. It may require login or use a streaming-only format.</string>
     <string name="error_youtube_live">This YouTube video is live or still processing. Try again after the stream ends.</string>
     <string name="error_youtube_no_format">YouTube offers no version of this video that this phone can save.</string>

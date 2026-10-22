@@ -16,6 +16,11 @@
 # Error Prone's annotations mention a compiler type that is not on the Android test classpath.
 -dontwarn javax.lang.model.element.Modifier
 
+# The authenticated Telegram page calls these methods by their JavaScript names.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
 # Device tests look these PlayerActivity fields up by name.
 -keepclassmembers class org.still.saver.PlayerActivity {
     private android.widget.VideoView video;

@@ -26,12 +26,28 @@ public class PublicLinkParserTest {
       "https://www.threads.net/@someone/post/AbC123",
       "https://www.threads.com/@someone/post/AbC123",
       "https://bsky.app/profile/someone.bsky.social/post/3abc123",
-      "https://bsky.app/profile/did:plc:abcdef/post/3abc123"
+      "https://bsky.app/profile/did:plc:abcdef/post/3abc123",
+      "https://t.me/europa_press/613",
+      "https://t.me/c/123456/613"
     };
     for (String url : urls) assertEquals(url, PublicLinkParser.parse("Shared media: " + url));
     assertEquals(
         "https://x.com/i/status/123",
         PublicLinkParser.parse("https://twitter.com/a/status/123?s=20"));
+  }
+
+  @Test
+  public void canonicalizesTelegramPostLinks() throws Exception {
+    String canonical = "https://t.me/europa_press/613";
+    String[][] cases = {
+      {canonical, canonical},
+      {"https://telegram.me/europa_press/613?single", canonical},
+      {"https://www.t.me/s/europa_press/613/", canonical},
+      {"https://t.me/europa_press/613?embed=1", canonical},
+      {"https://telegram.me/c/123456/613?single", "https://t.me/c/123456/613"},
+    };
+    for (String[] c : cases)
+      assertEquals(c[0], c[1], PublicLinkParser.parse("Shared video: " + c[0] + " !"));
   }
 
   @Test
@@ -106,6 +122,24 @@ public class PublicLinkParserTest {
       "https://www.facebook.com/permalink.php?id=123",
       "https://www.instagram.com/share/reel/Abc123/",
       "https://threads.com/",
+      "https://t.me/",
+      "https://t.me/europa_press",
+      "https://t.me/c/123456",
+      "https://t.me/+AbC123",
+      "https://t.me/joinchat/AbC123",
+      "https://t.me/joinchat/123456",
+      "https://telegram.me/login/123456",
+      "https://www.t.me/s/login/123456",
+      "https://t.me/addlist/123456",
+      "https://t.me/addstyle/123456",
+      "https://t.me/call/123456",
+      "https://t.me/m/123456",
+      "https://t.me/share/123456",
+      "https://t.me/socks/123456",
+      "https://t.me/s/123456",
+      "https://t.me/s/s/123456",
+      "https://t.me/europa_press/0",
+      "https://t.me/europa_press/613.evil",
       "https://tiktok.com/",
       "https://facebook.com/watch/",
       "https://facebook.com/video.php?other=123",

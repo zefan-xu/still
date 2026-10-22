@@ -248,14 +248,19 @@ public final class CookieDownloadService extends Service {
     NetworkCapabilities capabilities =
         connectivity.getNetworkCapabilities(connectivity.getActiveNetwork());
     NetworkInfo info = connectivity.getActiveNetworkInfo();
-    if (capabilities == null
-        || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        || info == null
-        || !info.isConnected()
-        || info.isRoaming()) return DownloadManager.PAUSED_WAITING_FOR_NETWORK;
-    if (wifi
-        && (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-            || connectivity.isActiveNetworkMetered()))
+    boolean internet =
+        capabilities != null
+            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            && info != null
+            && info.isConnected();
+    boolean wifiNetwork =
+        capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+    boolean roaming = info != null && info.isRoaming();
+    if (!DownloadNetworkPolicy.allows(
+        false, internet, wifiNetwork, connectivity.isActiveNetworkMetered(), roaming))
+      return DownloadManager.PAUSED_WAITING_FOR_NETWORK;
+    if (!DownloadNetworkPolicy.allows(
+        wifi, internet, wifiNetwork, connectivity.isActiveNetworkMetered(), roaming))
       return DownloadManager.PAUSED_QUEUED_FOR_WIFI;
     return 0;
   }

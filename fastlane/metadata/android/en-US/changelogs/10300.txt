@@ -1,0 +1,1 @@
+- Support Telegram videos from public, private and restricted channels

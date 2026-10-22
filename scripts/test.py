@@ -33,7 +33,7 @@ LIVE = ["LivePlatformDownloadTest", "LivePostDownloadTest", "LiveMetaAvailabilit
         "DeviceSmokeTest#resolvesAndSavesPublicTwitterVideoUsingAndroid"]
 LIVE_REPORTS = ["x", "bluesky", "instagram", "tiktok", "facebook", "facebook-video",
                 "facebook-embed", "facebook-legacy", "threads", "threads-audio", "youtube", "youtube-4k",
-                "youtube-vp9", "pinterest",
+                "youtube-vp9", "pinterest", "telegram",
                 "facebook-unavailable", "threads-no-video", "threads-unavailable",
                 "x-mixed", "x-gif", "instagram-carousel", "bluesky-photo", "pinterest-photo",
                 "tiktok-photo", "threads-photos", "facebook-publisher"]

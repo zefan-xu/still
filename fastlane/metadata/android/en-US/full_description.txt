@@ -1,4 +1,4 @@
-Still is a small app for keeping the photos, videos and GIFs from public posts. Share a link to it from any app, choose what to keep, and carry on. The files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or sign-in, and it never asks for an account.
+Still is a small app for keeping photos, videos and GIFs from the posts you can access. Share a link from any app, choose what to keep, and carry on. The files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or trackers. Telegram sign-in is optional and only needed for private or restricted channels.
 
 How it works:
 
@@ -16,13 +16,14 @@ Where it works:
 - Threads: photos, carousels and videos
 - Bluesky: videos and photos
 - YouTube: videos and Shorts, up to 4K
+- Telegram: videos from public channel posts, or private and restricted channels with optional in-app sign-in
 
-Only public posts work. Private, login-only and deleted posts, live streams and Facebook photos are not supported. On Android 10 or later, Still downloads YouTube's separate video and audio and combines them on your phone without re-encoding. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered.
+Other platforms are limited to public posts. Private, login-only and deleted posts, live streams and Facebook photos are not supported there. Telegram private channels use Telegram Web inside Still, where you sign in directly with Telegram; Still never imports or exports browser cookies. On Android 10 or later, Still downloads YouTube's separate video and audio and combines them on your phone without re-encoding. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered.
 
 Files go to Downloads/Still, or to another folder inside Downloads. Settings cover default quality, saving automatically on share, Wi-Fi-only downloads, one to four downloads at a time, and light, dark or system appearance.
 
 Privacy:
 
-Still reads posts the way a logged-out browser would, directly from your phone. There is no Still server. For X, only the post ID goes to the open-source FxTwitter API, and you can point Settings at your own instance. Other platforms are contacted directly. The bundled yt-dlp extractor runs on the phone and updates only when you ask, from yt-dlp's official GitHub release. Still reads the clipboard only when you tap Paste.
+Still reads most posts the way a logged-out browser would, directly from your phone. Telegram private channels use Telegram Web inside the app, and that session stays in the app sandbox. There is no Still server. For X, only the post ID goes to the open-source FxTwitter API, and you can point Settings at your own instance. Other platforms are contacted directly. The bundled yt-dlp extractor runs on the phone and updates only when you ask, from yt-dlp's official GitHub release. Still reads the clipboard only when you tap Paste.
 
 Still is free software under the GPL-3.0-or-later. It is not affiliated with any of the platforms it works with.

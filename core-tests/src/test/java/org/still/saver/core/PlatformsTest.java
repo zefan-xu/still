@@ -11,10 +11,10 @@ public class PlatformsTest {
   @Test
   public void listsEveryPlatformInDisplayOrder() {
     assertEquals(
-        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky and YouTube",
+        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube and Telegram",
         Platforms.names("and"));
     assertEquals(
-        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky or YouTube",
+        "X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube or Telegram",
         Platforms.names("or"));
     for (Platforms.Platform platform : Platforms.ALL)
       assertFalse(platform.name, platform.examples.isEmpty());
@@ -27,7 +27,7 @@ public class PlatformsTest {
       fail("Accepted an unsupported link");
     } catch (IOException expected) {
       assertEquals(
-          "Use an HTTPS public post link from " + Platforms.names("or") + ".",
+          "Use a supported HTTPS post link from " + Platforms.names("or") + ".",
           English.message(expected));
     }
   }
@@ -56,6 +56,8 @@ public class PlatformsTest {
       {"https://www.youtube.com/watch?v=dQw4w9WgXcQ", Platforms.YOUTUBE, Kind.VIDEO},
       {"https://youtu.be/dQw4w9WgXcQ?si=abc", Platforms.YOUTUBE, Kind.VIDEO},
       {"https://youtube.com/shorts/dQw4w9WgXcQ?feature=share", Platforms.YOUTUBE, Kind.SHORT},
+      {"https://t.me/europa_press/613?single", Platforms.TELEGRAM, Kind.VIDEO},
+      {"https://t.me/c/123456/613", Platforms.TELEGRAM, Kind.VIDEO},
     };
     for (Object[] c : cases) {
       Platforms.Match match = Platforms.detect("Look at this: " + c[0] + " !");
@@ -70,6 +72,9 @@ public class PlatformsTest {
     assertEquals(
         "YouTube Short",
         English.label(Platforms.detect("https://m.youtube.com/shorts/dQw4w9WgXcQ")));
+    assertEquals(
+        "https://t.me/europa_press/613",
+        Platforms.detect("https://telegram.me/europa_press/613?single").url);
   }
 
   @Test
@@ -84,6 +89,13 @@ public class PlatformsTest {
       "https://instagram.com/someone/",
       "http://instagram.com/reel/Abc",
       "javascript:alert(1)",
+      "https://t.me/login/123456",
+      "https://telegram.me/joinchat/123456",
+      "https://www.t.me/s/addlist/123456",
+      "https://t.me/s/s/123456",
+      "https://t.me/m/123456",
+      "https://t.me/call/123456",
+      "https://t.me/s/123456",
     };
     for (String input : inputs) assertNull(input, Platforms.detect(input));
   }

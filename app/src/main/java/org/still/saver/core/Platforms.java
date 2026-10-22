@@ -106,10 +106,13 @@ public final class Platforms {
           "youtube.com/watch?v=…",
           "/shorts/…",
           "youtu.be/…");
+  public static final Platform TELEGRAM =
+      new Platform("Telegram", Collections.singletonList("t.me"), "t.me/…/…");
 
   public static final List<Platform> ALL =
       Collections.unmodifiableList(
-          Arrays.asList(X, INSTAGRAM, TIKTOK, FACEBOOK, PINTEREST, THREADS, BLUESKY, YOUTUBE));
+          Arrays.asList(
+              X, INSTAGRAM, TIKTOK, FACEBOOK, PINTEREST, THREADS, BLUESKY, YOUTUBE, TELEGRAM));
 
   private Platforms() {}
 
@@ -159,6 +162,7 @@ public final class Platforms {
     }
     if (platform == PINTEREST) return host.endsWith("pin.it") ? Kind.LINK : Kind.PIN;
     if (platform == YOUTUBE) return path.startsWith("/shorts/") ? Kind.SHORT : Kind.VIDEO;
+    if (platform == TELEGRAM) return Kind.VIDEO;
     return Kind.POST;
   }
 }

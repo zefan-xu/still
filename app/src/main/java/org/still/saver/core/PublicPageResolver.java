@@ -29,6 +29,9 @@ public final class PublicPageResolver {
 
   public Post resolve(String input) throws IOException {
     String sourceUrl = PublicLinkParser.parse(input);
+    TelegramLink telegram = TelegramLink.from(sourceUrl);
+    if (telegram != null && telegram.privateChannel)
+      throw new UserError(ErrorCode.TELEGRAM_AUTH_REQUIRED);
     String sourceHost = java.net.URI.create(sourceUrl).getHost();
     if ("threads.com".equals(sourceHost)
         || "www.threads.com".equals(sourceHost)
@@ -101,7 +104,7 @@ public final class PublicPageResolver {
               request.addOption("--ignore-config");
               request.addOption("--dump-single-json");
               request.addOption("--skip-download");
-              request.addOption("--no-playlist");
+              request.addOption(wantsPlaylist(sourceUrl) ? "--yes-playlist" : "--no-playlist");
               request.addOption("--playlist-end", 20);
               request.addOption("--socket-timeout", 15);
               request.addOption("--retries", 1);
@@ -127,6 +130,12 @@ public final class PublicPageResolver {
     } finally {
       executor.shutdownNow();
     }
+  }
+
+  /** Telegram message links may contain an album, while the other extractors stay single-post. */
+  static boolean wantsPlaylist(String sourceUrl) {
+    java.net.URI uri = java.net.URI.create(sourceUrl);
+    return "t.me".equalsIgnoreCase(uri.getHost());
   }
 
   private static IOException extractionError(Throwable cause) {

@@ -14,6 +14,7 @@ import java.util.Locale;
 import org.still.saver.core.Media;
 import org.still.saver.core.Platforms;
 import org.still.saver.core.Post;
+import org.still.saver.core.TelegramLink;
 import org.still.saver.core.Variant;
 import org.still.saver.ui.Format;
 import org.still.saver.ui.Motion;
@@ -33,6 +34,9 @@ final class ResultsSheet {
 
     /** Share mode only: continue in the full app. */
     void openApp();
+
+    /** Open the submitted Telegram post in Still's authenticated web view. */
+    void openTelegram();
   }
 
   private final Ui ui;
@@ -157,6 +161,13 @@ final class ResultsSheet {
       LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
       params.setMarginStart(ui.dp(10));
       box.addView(links, params);
+    }
+    if (TelegramLink.from(session.submitted()) != null) {
+      TextView telegram =
+          ui.quietButton(ui.activity.getString(R.string.telegram_open_web), actions::openTelegram);
+      LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+      params.setMarginStart(ui.dp(10));
+      box.addView(telegram, params);
     }
     LinearLayout buttons = ui.row();
     buttons.setPadding(ui.dp(24), ui.dp(8), ui.dp(24), ui.dp(4));
