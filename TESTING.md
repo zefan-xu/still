@@ -27,7 +27,7 @@ Each gate fails the build; none only reports.
 
 | Gate | What it checks | Where it is set |
 | --- | --- | --- |
-| JVM tests | 163 JUnit tests over the parsers, resolvers, Telegram link and bridge routing, `ByteRanges`, `Mp4Repair`, `LibraryModel`, `Format` and the GIF encoder | `core-tests/src/test`, `app/src/test` |
+| JVM tests | 165 JUnit tests over the parsers, resolvers, Telegram link and bridge routing, network policy, `ByteRanges`, `Mp4Repair`, `LibraryModel`, `Format` and the GIF encoder | `core-tests/src/test`, `app/src/test` |
 | Property tests | [jqwik](https://jqwik.net) generates share text, links, hosts, MP4 box trees, random bytes and library histories. Invariants include: every supported post link survives surrounding share text and comes out canonical; preview URLs never reach IP addresses or local names; MP4 repair touches only sample-table flags, is idempotent and never throws; every library item appears exactly once, in order, within its day | `*PropertyTest.java` |
 | Coverage | JaCoCo line ≥ 87%, branch ≥ 72% for the code `core-tests` compiles | `core-tests/build.gradle` |
 | Mutation | PIT must kill ≥ 73% of mutants; surviving mutants are listed in `core-tests/build/reports/pitest/index.html` | `core-tests/build.gradle` |

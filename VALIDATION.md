@@ -6,7 +6,7 @@ Still 1.2.1, verified on 2026-10-14 with JDK 21, Android SDK 35 and an isolated 
 
 | Check | Observed result |
 | --- | --- |
-| JVM tests | 163 tests pass: link parsing and Telegram/YouTube link canonicalization, every resolver (X, Instagram, Bluesky, Pinterest, TikTok photos, Threads, Facebook embeds, Telegram public posts, YouTube), YouTube stream pairing, codec preference and quality ranking, ranged transfers, extractor JSON, scoped cookies, preview fetching, MP4 repair, library grouping, formatting and GIF encoding. |
+| JVM tests | 165 tests pass: link parsing and Telegram/YouTube link canonicalization, every resolver (X, Instagram, Bluesky, Pinterest, TikTok photos, Threads, Facebook embeds, Telegram public posts, YouTube), network policy, YouTube stream pairing, codec preference and quality ranking, ranged transfers, extractor JSON, scoped cookies, preview fetching, MP4 repair, library grouping, formatting and GIF encoding. |
 | Android build and lint | Debug, release and instrumentation APKs build; lint treats warnings as errors and reports no issues, with no baseline. |
 | Offline device suite | 32 deterministic checks pass: settings, quality selection, saving several items, library search and file operations, Retry/Cancel, Open/Share routing, playback, GIF export, cancellation and failure, download-state recovery, the first-run tutorial, video and audio merging, playable-quality detection and the bundled extractor. |
 | Live public posts | 27 checks were verified on 2026-10-14. Telegram's public post was verified separately on 2026-10-22, bringing the configured highest-quality suite to 28 checks. Each successful probe resolves a real public post, downloads every item through the app's queue and requires Android to decode it. |

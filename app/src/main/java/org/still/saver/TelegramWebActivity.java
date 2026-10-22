@@ -6,6 +6,10 @@ import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.media.MediaScannerConnection;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -54,6 +58,8 @@ public final class TelegramWebActivity extends Activity {
   private Ui ui;
   private WebView web;
   private TextView status, save;
+  private ConnectivityManager connectivity;
+  private ConnectivityManager.NetworkCallback networkCallback;
   private TelegramLink link;
   private volatile String captureToken;
   private volatile long captureGeneration;
@@ -86,6 +92,7 @@ public final class TelegramWebActivity extends Activity {
     Theme theme = Theme.apply(this);
     super.onCreate(state);
     ui = new Ui(this, theme);
+    connectivity = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
     String source = getIntent().getStringExtra(EXTRA_LINK);
     link = source == null ? null : TelegramLink.from(source);
 
@@ -125,6 +132,25 @@ public final class TelegramWebActivity extends Activity {
     setContentView(root);
     root.requestApplyInsets();
     web.loadUrl(link == null ? WEB_HOME : WEB_HOME + link.webHash());
+    networkCallback =
+        new ConnectivityManager.NetworkCallback() {
+          @Override
+          public void onAvailable(Network network) {
+            networkChanged();
+          }
+
+          @Override
+          public void onLost(Network network) {
+            networkChanged();
+          }
+
+          @Override
+          public void onCapabilitiesChanged(
+              Network network, NetworkCapabilities capabilities) {
+            networkChanged();
+          }
+        };
+    connectivity.registerDefaultNetworkCallback(networkCallback);
   }
 
   private final class TelegramClient extends WebViewClient {
@@ -165,7 +191,44 @@ public final class TelegramWebActivity extends Activity {
     }
   }
 
+  private int networkPause() {
+    NetworkCapabilities capabilities = connectivity.getNetworkCapabilities(connectivity.getActiveNetwork());
+    NetworkInfo info = connectivity.getActiveNetworkInfo();
+    boolean internet =
+        capabilities != null
+            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            && info != null
+            && info.isConnected();
+    boolean wifi = capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+    boolean roaming = info != null && info.isRoaming();
+    boolean metered = connectivity.isActiveNetworkMetered();
+    if (!DownloadNetworkPolicy.allows(false, internet, wifi, metered, roaming))
+      return R.string.status_waiting_connection;
+    boolean wifiOnly = DownloadStore.prefs(this).getBoolean("wifi", false);
+    if (!DownloadNetworkPolicy.allows(wifiOnly, internet, wifi, metered, roaming))
+      return R.string.status_waiting_wifi;
+    return 0;
+  }
+
+  private void networkChanged() {
+    int pause = networkPause();
+    if (pause == 0) return;
+    long generation;
+    synchronized (this) {
+      if (captureToken == null) return;
+      generation = captureGeneration;
+    }
+    captureStopped(generation, getString(pause), false);
+  }
+
   private void requestCapture() {
+    int pause = networkPause();
+    if (pause != 0) {
+      pendingCapture = false;
+      save.setEnabled(true);
+      showStatus(getString(pause), false);
+      return;
+    }
     if (!StoragePermission.ensure(this, STORAGE_REQUEST)) {
       pendingCapture = true;
       return;
@@ -176,6 +239,12 @@ public final class TelegramWebActivity extends Activity {
   private synchronized void startCapture() {
     if (destroyed) return;
     if (captureToken != null) return;
+    int pause = networkPause();
+    if (pause != 0) {
+      save.setEnabled(true);
+      showStatus(getString(pause), false);
+      return;
+    }
     captureGeneration++;
     captureToken = UUID.randomUUID().toString().replace("-", "");
     String script;
@@ -227,6 +296,10 @@ public final class TelegramWebActivity extends Activity {
   }
 
   private void captureFailed(long generation) {
+    captureStopped(generation, getString(R.string.telegram_capture_failed), true);
+  }
+
+  private void captureStopped(long generation, String message, boolean error) {
     main.removeCallbacks(captureTimeout);
     String failedToken;
     synchronized (this) {
@@ -250,7 +323,7 @@ public final class TelegramWebActivity extends Activity {
                 null);
           }
           save.setEnabled(true);
-          showStatus(getString(R.string.telegram_capture_failed), true);
+          showStatus(message, error);
         });
   }
 
@@ -495,6 +568,13 @@ public final class TelegramWebActivity extends Activity {
   @Override
   protected void onDestroy() {
     main.removeCallbacks(captureTimeout);
+    if (connectivity != null && networkCallback != null) {
+      try {
+        connectivity.unregisterNetworkCallback(networkCallback);
+      } catch (IllegalArgumentException ignored) {
+        /* Registration was already removed with the process. */
+      }
+    }
     synchronized (this) {
       destroyed = true;
       captureToken = null;
