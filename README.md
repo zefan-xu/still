@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/hero-dark.svg">
-  <img src="docs/readme/hero-light.svg" width="100%" alt="Still: save the photos and videos from public posts. No ads, no account, no tracking.">
+  <img src="docs/readme/hero-light.svg" width="100%" alt="Still: save the photos and videos from the posts you can access. No ads, no tracking.">
 </picture>
 
 <p>
@@ -14,12 +14,12 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/platforms-dark.svg">
-  <img src="docs/readme/platforms-light.svg" height="26" alt="Works with X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky and YouTube">
+  <img src="docs/readme/platforms-light.svg" height="26" alt="Works with X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube and Telegram">
 </picture>
 
 <br><br>
 
-Still is a small Android app for keeping the photos, videos and GIFs from public posts. Share a link to it from any app, choose what to keep, and carry on; the files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or sign-in, and it never asks for an account.
+Still is a small Android app for keeping photos, videos and GIFs from the posts you can access. Share a link from any app, choose what to keep, and carry on; files land in your Downloads folder and in a quiet library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or trackers. Telegram sign-in is optional and only needed for private or restricted channels.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens-dark.png">
@@ -46,15 +46,16 @@ Files go to `Downloads/Still`, or to another folder inside Downloads. Settings c
 | Threads | Photos, carousels and videos |
 | Bluesky | Videos and photos |
 | YouTube | Videos and Shorts, up to 4K |
+| Telegram | Videos from public channel posts; private or restricted channels with optional in-app sign-in |
 
-Only public posts work. Private, login-only and deleted posts, streaming-only video such as live streams, and Facebook photos are not supported. YouTube serves most qualities as separate video and audio files; on Android 10 or later, Still downloads both and combines them on your phone without re-encoding. Qualities YouTube offers as H.264, usually up to 1080p, save as MP4. Above that, Still uses AV1 saved as MP4 on Android 14 or later, or VP9 saved as WebM. Qualities your phone can't play are not shown, so many phones top out at 1080p or 1440p. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered. Platforms change without notice, so a scheduled job downloads real posts from every platform each week and opens an issue when one stops working; [VALIDATION.md](VALIDATION.md) lists the exact posts. If a link that used to work stops, [tell us](https://github.com/zefan-xu/still/issues/new?template=link-stopped-working.yml).
+The other platforms are limited to public posts. Private, login-only and deleted posts, streaming-only video such as live streams, and Facebook photos are not supported there. Telegram public posts work anonymously; private or restricted channel videos can be opened through Telegram Web inside Still, where you sign in directly with Telegram. The app never exports or imports browser cookies. YouTube serves most qualities as separate video and audio files; on Android 10 or later, Still downloads both and combines them on your phone without re-encoding. Qualities YouTube offers as H.264, usually up to 1080p, save as MP4. Above that, Still uses AV1 saved as MP4 on Android 14 or later, or VP9 saved as WebM. Qualities your phone can't play are not shown, so many phones top out at 1080p or 1440p. On Android 7 to 9, only YouTube's complete files, usually 360p, are offered. Platforms change without notice, so a scheduled job downloads real posts from every platform each week and opens an issue when one stops working; [VALIDATION.md](VALIDATION.md) lists the exact posts. If a link that used to work stops, [tell us](https://github.com/zefan-xu/still/issues/new?template=link-stopped-working.yml).
 
 ## Privacy
 
 Still reads posts the way a logged-out browser would, directly from your phone. There is no Still server.
 
 - **No tracking.** No advertising SDK, advertising ID, analytics or crash reporting.
-- **No accounts.** Still never asks you to sign in and never imports browser cookies or credentials. When a platform requires one for a public file, it uses an anonymous session cookie and checks its scope on every redirect.
+- **Telegram is optional.** Most platforms need no account. For private Telegram channels, sign in inside Still's Telegram Web view; its session stays in the app sandbox and is never exported. Still never imports browser cookies or credentials, and public files use anonymous sessions where a platform requires one.
 - **Only what's needed leaves your phone.** For X, only the post ID goes to the open-source [FxTwitter](https://github.com/FxEmbed/FxEmbed) API; you can point Settings at your own instance. Other platforms are contacted directly, and the bundled [yt-dlp](https://github.com/yt-dlp/yt-dlp) extractor runs on the device. It updates only when you ask, from yt-dlp's official GitHub release.
 - **Clipboard on request.** Still reads the clipboard only when you tap **Paste**.
 
@@ -92,7 +93,7 @@ The release workflow refuses to publish an APK signed by any other certificate (
 
 Every change reaches `main` through a pull request that must pass one required check, **CI passed**. Behind it:
 
-- **Unit and property tests.** 134 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
+- **Unit and property tests.** 163 JVM tests run the real link parsers, resolvers, library model and GIF encoder. [jqwik](https://jqwik.net) property tests feed them thousands of generated links, MP4 boxes and library states per run.
 - **Mutation testing.** [PIT](https://pitest.org) plants small bugs in the core code; the build fails if fewer than 73% are caught. Line and branch coverage must stay above their floors as well.
 - **Static analysis.** [Error Prone](https://errorprone.info) and Android lint run with warnings as errors.
 - **Real devices.** 31 workflows (saving, the library, sharing, playback and the viewer, GIF export, merging video and audio, which qualities the phone can play, settings and download state) run on Android 10 and Android 15 emulators against real files.

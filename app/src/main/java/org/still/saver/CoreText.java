@@ -50,6 +50,7 @@ public final class CoreText {
     if (platform == Platforms.THREADS) return R.string.links_threads_summary;
     if (platform == Platforms.BLUESKY) return R.string.links_bluesky_summary;
     if (platform == Platforms.YOUTUBE) return R.string.links_youtube_summary;
+    if (platform == Platforms.TELEGRAM) return R.string.links_telegram_summary;
     throw new IllegalArgumentException(platform.name);
   }
 
@@ -163,6 +164,8 @@ public final class CoreText {
         return R.string.error_extractor_start_failed;
       case EXTRACTOR_FAILED:
         return R.string.error_extractor_failed;
+      case TELEGRAM_AUTH_REQUIRED:
+        return R.string.error_telegram_auth_required;
       case NO_COMPLETE_VIDEO:
         return R.string.error_no_complete_video;
       case YOUTUBE_LIVE:

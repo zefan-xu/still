@@ -140,6 +140,11 @@ public final class LivePlatformDownloadTest {
         "https://www.pinterest.com/pin/1084663891475263837/");
   }
 
+  @Test
+  public void telegram() throws Exception {
+    verify("telegram", "https://t.me/europa_press/613");
+  }
+
   private void verify(String platform, String... candidates) throws Exception {
     verify(platform, false, candidates);
   }

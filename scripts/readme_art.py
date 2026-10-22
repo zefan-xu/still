@@ -36,7 +36,8 @@ PALETTE = {
              "tertiary": "#9C9A90", "hairline": "#3D3D3A", "accent": "#D97757", "onInk": "#1F1E1D",
              "bezel": "#0B0B0A"},
 }
-PLATFORMS = ["X", "Instagram", "TikTok", "Facebook", "Pinterest", "Threads", "Bluesky", "YouTube"]
+PLATFORMS = ["X", "Instagram", "TikTok", "Facebook", "Pinterest", "Threads", "Bluesky", "YouTube",
+             "Telegram"]
 SHOWCASE = [
     ("library", "Your library", "Everything you saved, by day"),
     ("save", "Save from any app", "Share a post, keep what you want"),
@@ -102,12 +103,12 @@ def hero(theme, display, semibold):
     word = display.text("Still", 168, left - 6, 236, c["ink"])
     period_x = left - 6 + display.width("Still", 168) + 4
     period = f'<circle cx="{period_x + 13:.1f}" cy="224" r="13" fill="{c["accent"]}"/>'
-    lines = ["Save the photos and videos", "from public posts."]
+    lines = ["Save the photos and videos", "from the posts you can access."]
     tagline = "".join(display.text(line, 44, left, 318 + i * 54, c["secondary"]) for i, line in enumerate(lines))
-    plain = semibold.text("No ads, no account, no tracking.", 22, left, 446, c["tertiary"], tracking=0.4)
+    plain = semibold.text("No ads, no tracking. Telegram sign-in is optional.", 22, left, 446, c["tertiary"], tracking=0.4)
     figure = f'<g transform="translate(760 92) scale(1.72)">{tray(theme)}</g>'
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img">'
-            f'<title>Still: save the photos and videos from public posts. No ads, no account, no tracking.</title>'
+            f'<title>Still: save the photos and videos from the posts you can access. No ads, no tracking.</title>'
             f'<rect x="1" y="1" width="{w - 2}" height="{h - 2}" rx="28" fill="{c["bg"]}" stroke="{c["hairline"]}" stroke-width="2"/>'
             f'{word}{period}{tagline}{plain}{figure}</svg>\n')
 

@@ -3,6 +3,7 @@ package org.still.saver;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.still.saver.core.Post;
 import org.still.saver.core.PublicPageResolver;
+import org.still.saver.core.TelegramLink;
 import org.still.saver.core.Variant;
 
 /**
@@ -115,6 +117,19 @@ final class SaveSession {
     if (text.isEmpty()) {
       phase = Phase.ERROR;
       message = app.getString(R.string.save_link_empty);
+      changed();
+      return;
+    }
+    TelegramLink telegram = TelegramLink.from(text);
+    if (telegram != null && telegram.privateChannel) {
+      phase = Phase.IDLE;
+      post = null;
+      message = null;
+      submitted = "";
+      app.startActivity(
+          new Intent(app, TelegramWebActivity.class)
+              .putExtra(TelegramWebActivity.EXTRA_LINK, telegram.canonicalUrl)
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
       changed();
       return;
     }

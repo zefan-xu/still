@@ -54,10 +54,13 @@ public final class ExtractorJsonParser {
     }
     String title = firstString(root, "title", "description");
     if (title.isEmpty()) title = "Public post media";
+    String author = firstString(root, "uploader", "channel", "uploader_id");
+    if (author.isEmpty())
+      author = firstNestedString(root.optJSONArray("entries"), "uploader", "channel", "uploader_id");
     return new Post(
         root.optString("id", ""),
         title,
-        firstString(root, "uploader", "channel", "uploader_id"),
+        author,
         sourceUrl,
         new ArrayList<>(attachments.values()));
   }
@@ -359,6 +362,19 @@ public final class ExtractorJsonParser {
   private static String firstString(JSONObject object, String... names) {
     for (String name : names) {
       String value = object.optString(name, "").trim();
+      if (!value.isEmpty()) return value;
+    }
+    return "";
+  }
+
+  private static String firstNestedString(JSONArray entries, String... names) {
+    if (entries == null) return "";
+    for (int i = 0; i < entries.length(); i++) {
+      JSONObject entry = entries.optJSONObject(i);
+      if (entry == null) continue;
+      String value = firstString(entry, names);
+      if (!value.isEmpty()) return value;
+      value = firstNestedString(entry.optJSONArray("entries"), names);
       if (!value.isEmpty()) return value;
     }
     return "";

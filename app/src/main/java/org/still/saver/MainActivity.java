@@ -37,6 +37,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.still.saver.core.Platforms;
+import org.still.saver.core.TelegramLink;
 import org.still.saver.gif.GifService;
 import org.still.saver.ui.LibraryModel;
 import org.still.saver.ui.Motion;
@@ -65,7 +66,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
   private Motion.Value linked, hintFade;
   private TextView statusText;
   private ProgressLine statusLine;
-  private TextView statusCancel, statusLinks;
+  private TextView statusCancel, statusLinks, statusTelegram;
   /** Opens with the link field focused; sent by the tutorial's "Paste a link". */
   static final String EXTRA_COMPOSE = "org.still.saver.extra.COMPOSE";
 
@@ -257,6 +258,9 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     statusRow.addView(statusCancel);
     statusLinks = ui.quietButton(getString(R.string.links_title), this::showSupportedLinks);
     statusRow.addView(statusLinks);
+    statusTelegram =
+        ui.quietButton(getString(R.string.telegram_open_web), this::openSubmittedTelegram);
+    statusRow.addView(statusTelegram);
     status.addView(statusRow);
     status.setVisibility(View.GONE);
     composer.addView(status);
@@ -470,6 +474,7 @@ public final class MainActivity extends Activity implements SaveSession.Host {
 
   private void showStatus(String text, boolean loading, boolean error) {
     statusLinks.setVisibility(View.GONE);
+    statusTelegram.setVisibility(View.GONE);
     hint.setVisibility(text == null ? View.VISIBLE : View.GONE);
     if (text == null) {
       status.setVisibility(View.GONE);
@@ -493,8 +498,11 @@ public final class MainActivity extends Activity implements SaveSession.Host {
       case ERROR:
         showStatus(s.message(), false, true);
         String text = input.getText().toString();
-        if (!text.trim().isEmpty() && Platforms.detect(text) == null)
+        if (TelegramLink.from(text) != null) {
+          statusTelegram.setVisibility(View.VISIBLE);
+        } else if (!text.trim().isEmpty() && Platforms.detect(text) == null) {
           statusLinks.setVisibility(View.VISIBLE);
+        }
         hideResults();
         break;
       case READY:
@@ -519,6 +527,10 @@ public final class MainActivity extends Activity implements SaveSession.Host {
     }
   }
 
+  private void openSubmittedTelegram() {
+    startActivity(TelegramWebActivity.intent(this, input.getText().toString()));
+  }
+
   private void showResults() {
     View view =
         results.build(
@@ -541,6 +553,11 @@ public final class MainActivity extends Activity implements SaveSession.Host {
 
               @Override
               public void openApp() {}
+
+              @Override
+              public void openTelegram() {
+                startActivity(TelegramWebActivity.intent(MainActivity.this, session.submitted()));
+              }
             });
     if (resultsShowing && sheet.isShowing()) {
       if (results.redraw()) sheet.update(view);

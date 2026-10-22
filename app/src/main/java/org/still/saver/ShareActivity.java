@@ -90,6 +90,12 @@ public final class ShareActivity extends Activity implements SaveSession.Host {
                                 | Intent.FLAG_ACTIVITY_SINGLE_TOP));
                 ShareActivity.this.close();
               }
+
+              @Override
+              public void openTelegram() {
+                startActivity(
+                    TelegramWebActivity.intent(ShareActivity.this, session.submitted()));
+              }
             });
     if (sheet.isShowing() && results.redraw()) sheet.update(view);
     else sheet.show(view);

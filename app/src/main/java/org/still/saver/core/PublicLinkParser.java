@@ -22,6 +22,19 @@ public final class PublicLinkParser {
   private static final Pattern YOUTUBE_SHORT_LINK = Pattern.compile("/" + YOUTUBE_ID + "/?");
   private static final Pattern YOUTUBE_WATCH_QUERY =
       Pattern.compile("(?:^|&)v=" + YOUTUBE_ID + "(?:&|$)");
+  private static final Pattern TELEGRAM_POST =
+      Pattern.compile("/([A-Za-z][A-Za-z0-9_]{0,31})/([1-9][0-9]{0,19})/?");
+  private static final Pattern TELEGRAM_PREVIEW_POST =
+      Pattern.compile("/s/([A-Za-z][A-Za-z0-9_]{0,31})/([1-9][0-9]{0,19})/?");
+  private static final Pattern TELEGRAM_PRIVATE_POST =
+      Pattern.compile("/c/([1-9][0-9]{0,19})/([1-9][0-9]{0,19})/?");
+  private static final Set<String> TELEGRAM_RESERVED =
+      new HashSet<>(
+          Arrays.asList(
+              "a", "addemoji", "addlist", "addstickers", "addstyle", "addtheme", "auction", "auth",
+              "bg", "boost", "c", "call", "confirmphone", "contact", "giftcode", "invoice", "iv",
+              "joinchat", "k", "login", "m", "nft", "proxy", "s", "setlanguage", "share", "socks",
+              "stars", "web", "z"));
   // Official regional domains recognized by the bundled Pinterest extractor.
   private static final Set<String> PINTEREST_DOMAINS =
       new HashSet<>(
@@ -116,6 +129,19 @@ public final class PublicLinkParser {
         case "bsky.app":
         case "www.bsky.app":
           supported = path.matches("/profile/[A-Za-z0-9._:-]+/post/[A-Za-z0-9]+/?");
+          break;
+        case "t.me":
+        case "www.t.me":
+        case "telegram.me":
+        case "www.telegram.me":
+          Matcher privatePost = TELEGRAM_PRIVATE_POST.matcher(path);
+          if (privatePost.matches())
+            return "https://t.me/c/" + privatePost.group(1) + "/" + privatePost.group(2);
+          Matcher telegram =
+              (path.startsWith("/s/") ? TELEGRAM_PREVIEW_POST : TELEGRAM_POST).matcher(path);
+          if (telegram.matches()
+              && !TELEGRAM_RESERVED.contains(telegram.group(1).toLowerCase(Locale.ROOT)))
+            return "https://t.me/" + telegram.group(1) + "/" + telegram.group(2);
           break;
         default:
           supported = isPinterestHost(host) && PINTEREST_POST.matcher(path).matches();

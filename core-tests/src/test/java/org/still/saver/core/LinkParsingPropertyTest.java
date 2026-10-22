@@ -24,7 +24,7 @@ public class LinkParsingPropertyTest {
       new HashSet<>(
           Arrays.asList(
               "x.com", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "pinterest.com",
-              "pin.it", "threads.net", "threads.com", "bsky.app", "youtube.com"));
+              "pin.it", "threads.net", "threads.com", "bsky.app", "youtube.com", "t.me"));
 
   @Property(tries = 3000)
   void arbitraryTextIsAcceptedOrRejectedWithAMessage(@ForAll String text) {
@@ -117,6 +117,12 @@ public class LinkParsingPropertyTest {
     Arbitrary<String> user = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyz0123456789._").ofMinLength(1).ofMaxLength(15);
     Arbitrary<String> twitterUser = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyz0123456789_").ofMinLength(1).ofMaxLength(15);
     Arbitrary<String> youtubeId = Arbitraries.strings().withChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-").ofLength(11);
+    Arbitrary<String> telegramChannel =
+        Arbitraries.strings()
+            .withChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+            .ofMinLength(0)
+            .ofMaxLength(29)
+            .map(s -> "tg_" + s);
     return Arbitraries.oneOf(
         Combinators.combine(Arbitraries.of("x.com", "twitter.com", "mobile.twitter.com", "fxtwitter.com"), twitterUser, id)
             .as((h, u, i) -> "https://" + h + "/" + u + "/status/" + i),
@@ -143,7 +149,14 @@ public class LinkParsingPropertyTest {
                     "https://youtu.be/",
                     "https://youtube.com/shorts/"),
                 youtubeId)
-            .as((prefix, v) -> prefix + v));
+            .as((prefix, v) -> prefix + v),
+        Combinators.combine(
+                Arbitraries.of("https://t.me/", "https://telegram.me/", "https://www.t.me/s/"),
+                telegramChannel,
+                id)
+            .as((prefix, channel, message) -> prefix + channel + "/" + message),
+        Combinators.combine(Arbitraries.of("https://t.me/c/", "https://telegram.me/c/"), id, id)
+            .as((prefix, channel, message) -> prefix + channel + "/" + message));
   }
 
   /** Prefixes and suffixes that messaging apps put around a shared link. */

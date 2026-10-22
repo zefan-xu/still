@@ -90,11 +90,11 @@ Title: `[AppRequest] Still`
 
 **Categories:** Multimedia, Internet
 
-**Summary:** Save the photos and videos from public posts. No ads, no account, no tracking.
+**Summary:** Save photos and videos from supported posts. No ads or tracking.
 
 **Description:**
 
-> Still is a small app for keeping the photos, videos and GIFs from public posts on X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky and YouTube. Share a link to it from any app, choose what to keep, and the files land in Downloads/Still and in a library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or sign-in. Posts are read directly from the phone the way a logged-out browser would; there is no Still server. The full description, screenshots and changelogs are in `fastlane/metadata/android/en-US`.
+> Still is a small app for keeping photos, videos and GIFs from supported posts on X, Instagram, TikTok, Facebook, Pinterest, Threads, Bluesky, YouTube and Telegram. Share a link from any app, choose what to keep, and the files land in Downloads/Still and in a library you can browse, share and turn into GIFs. It has no advertising, analytics, purchases or trackers. Telegram private channels use optional in-app Telegram Web sign-in; there is no Still server. The full description, screenshots and changelogs are in `fastlane/metadata/android/en-US`.
 
 **Build instructions:**
 
@@ -122,7 +122,7 @@ git checkout v1.2.1
 >
 > **Extractor updates.** Still never updates yt-dlp by itself. Settings has an "Update" action. It asks first ("Still downloads the latest official yt-dlp release from GitHub and checks its published checksum before installing it."), and only then downloads the official release from GitHub. The download replaces the installed file only when its SHA-256 matches the release's SHA2-256SUMS and the zipapp's version matches the tag; a mismatch leaves the previous extractor in place. Without an update, the bundled, checksummed copy is used.
 >
-> **Network.** For X, only the post ID goes to the open-source FxTwitter API, and users can point it at their own instance. Other platforms are contacted directly. There are no trackers, analytics or crash reporting.
+> **Network.** For X, only the post ID goes to the open-source FxTwitter API, and users can point it at their own instance. Other platforms are contacted directly. Telegram private channels use Telegram Web inside the app, and the session never leaves the app sandbox. There are no trackers, analytics or crash reporting.
 >
 > **APK size.** (Fill in: the per-ABI change, or a request for a size exception.)
 
