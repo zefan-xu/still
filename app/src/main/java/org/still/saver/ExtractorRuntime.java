@@ -24,9 +24,9 @@ import org.still.saver.core.YtDlpUpdate;
 
 /** Installs the pinned bundled extractor on first use or upgrade, preserving newer user updates. */
 public final class ExtractorRuntime {
-  public static final String BUNDLED_VERSION = "2026.08.19";
+  public static final String BUNDLED_VERSION = "2026.10.26";
   public static final String BUNDLED_SHA256 =
-      "1fa6733c37ea6fb51c99ad8fe785e7b7e5f3246c9b980230329d4fb72ed8d4d6";
+      "e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3";
   private static final Pattern VERSION =
       Pattern.compile("(?m)^__version__\\s*=\\s*['\"]([0-9]{4}\\.[0-9]{2}\\.[0-9]{2})['\"]");
   private static boolean ready;

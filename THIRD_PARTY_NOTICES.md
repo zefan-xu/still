@@ -8,7 +8,7 @@ Still's application code and GIF encoder are original work under GPL-3.0-or-late
 | --- | --- | --- |
 | jsoup 1.23.2 | MIT | https://github.com/jhy/jsoup/tree/jsoup-1.23.2 |
 | youtubedl-android library and common 0.18.1 | GPL-3.0 | https://github.com/yausername/youtubedl-android/tree/0.18.1 |
-| Bundled yt-dlp 2026.08.19 | Unlicense; bundled dependencies retain their own terms | https://github.com/yt-dlp/yt-dlp/releases/tag/2026.08.19 |
+| Bundled yt-dlp 2026.10.26 | Unlicense; bundled dependencies retain their own terms | https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26 |
 | Bundled Python runtime | Python Software Foundation License and component notices | https://github.com/python/cpython |
 | Bundled QuickJS runtime | MIT | https://github.com/bellard/quickjs |
 | Kotlin standard library 1.7.22 and JetBrains annotations | Apache-2.0 | https://github.com/JetBrains/kotlin; https://github.com/JetBrains/java-annotations |
@@ -18,7 +18,7 @@ Still's application code and GIF encoder are original work under GPL-3.0-or-late
 | Source Serif 4 (4.005; Display Regular and Semibold), unmodified static TTFs | SIL Open Font License 1.1, Reserved Font Name ‘Source’ | https://github.com/adobe-fonts/source-serif/releases/tag/4.005R |
 | Material Symbols Outlined (a subset of icons) | Apache-2.0; converted from SVG to Android VectorDrawable | https://github.com/google/material-design-icons |
 
-The upstream Android library's POM declares GPL-3.0. Its packaged native runtimes are redistributed without modification. The app overrides the library's older yt-dlp resource with the unmodified official 2026.08.19 executable in `app/src/main/res/raw/ytdlp` (3,072,469 bytes; SHA-256 `1fa6733c37ea6fb51c99ad8fe785e7b7e5f3246c9b980230329d4fb72ed8d4d6`, checked against the release's `SHA2-256SUMS`). APK upgrades install this bundle over an older cached extractor while preserving newer explicit updates. The app bundles no FFmpeg or aria2 executable. Extractor updates replace the bundled yt-dlp only after the download matches the release's SHA2-256SUMS and the zipapp version matches the tag; a mismatch leaves the previous file in place. Its own license and third-party terms still apply.
+The upstream Android library's POM declares GPL-3.0. Its packaged native runtimes are redistributed without modification. The app overrides the library's older yt-dlp resource with the unmodified official 2026.10.26 executable in `app/src/main/res/raw/ytdlp` (3,073,072 bytes; SHA-256 `e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3`, checked against the release's `SHA2-256SUMS`). APK upgrades install this bundle over an older cached extractor while preserving newer explicit updates. The app bundles no FFmpeg or aria2 executable. Extractor updates replace the bundled yt-dlp only after the download matches the release's SHA2-256SUMS and the zipapp version matches the tag; a mismatch leaves the previous file in place. Its own license and third-party terms still apply.
 
 License texts are in `licenses/` and are packaged into the APK as assets along with this notice and the application license. Upstream component notices remain in their dependency artifacts. Obtain exact corresponding native build sources and notices from the youtubedl-android 0.18.1 source release when redistributing an APK; do not treat the Java wrapper alone as the complete native source.
 
